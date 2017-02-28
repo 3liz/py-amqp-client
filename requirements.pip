@@ -1,4 +1,5 @@
 # Requirements for developpement environnemement
+twine
 pytest
 sphinx
 sphinx_rtd_theme
