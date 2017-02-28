@@ -1,0 +1,5 @@
+# Requirements for developpement environnemement
+pytest
+sphinx
+sphinx_rtd_theme
+
