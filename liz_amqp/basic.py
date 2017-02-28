@@ -172,6 +172,7 @@ class BasicWorker(BlockingConnection):
 # Blocking subscriber
 #
 
+Message = namedtuple("Message",('key','body','props') )
 
 class BasicSubscriber(BlockingConnection):
     """ Define a basic synchronous subscriber 
@@ -193,25 +194,25 @@ class BasicSubscriber(BlockingConnection):
                 channel = connection.channel()
 
                 if exchange_type is not None:
-                    channel.exchange_declare(exchange=topic, type=exchange_type)
+                    channel.exchange_declare(exchange=exchange, type=exchange_type)
             
                 result = channel.queue_declare(exclusive=True) 
                 queue_name = result.method.queue
 
                 if not routing_keys:
                     # No routing keys: support for 'fanout'
-                    channel.queue_bind(exchange=self._topic, queue=queue_name)
+                    channel.queue_bind(exchange=exchange, queue=queue_name)
                 else:
                     # Bind onto multiple routing_keys: supports for 'direct' and
                     # 'topic' exchange type
-                    if isinstance(routing_keys, string_types):
+                    if isinstance(routing_keys, str):
                         routing_keys = [routing_keys]
                     for key in routing_keys:
                         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=key)
 
                 def _on_message(chan, method, props, body):
                     try:
-                        handler(Request(method.routing_key, body, props))
+                        handler(Message(method.routing_key, body, props))
                     except Exception as e:
                         self.logger.error("Uncaught exception in message_handler {}".format(e))
                         traceback.print_exc()
@@ -227,4 +228,65 @@ class BasicSubscriber(BlockingConnection):
                 self.handle_connection_error(e)
             except CloseConnection:
                 self.close()
+
+#
+# Publisher
+#
+
+class BasicPublisher(BlockingConnection):
+    """ Define a basic synchronous publisher
+    """
+    def __init__(self, *args, **kwargs):
+        """ Create a new instance of a  publisher
+        """
+        self._exchange  = None
+        self._exchange_type = None
+        super(BasicPublisher, self).__init__(*args,**kwargs)
+
+    def initialize(self, exchange, exchange_type='fanout'):
+        """
+        """
+        self._exchange = exchange
+        self._exchange_type = exchange_type
+
+    def publish(self, message, routing_key='', expiration=None, content_type=None, 
+                      content_encoding=None, headers=None):
+        """ Send message to rabbitMQ server
+        """
+        if self._closing:
+            raise Exception("Cannot publish after closing connection")
+
+        if self._exchange is None:
+            raise RuntimeError("Bad exchange value: did you forget to call initialize() ?")
+
+        done=False
+
+        while not done:
+            try:
+                if self._connection is None:
+                    connection = self.connect()
+                    channel = connection.channel()
+                    if self._exchange_type != 'none':
+                        channel.exchange_declare(exchange=self._exchange, type=self._exchange_type)
+     
+                    self._channel    = channel
+                    self._connection = connection
+
+                if expiration is not None:
+                   expiration = "{:d}".format(expiration)
+                else:
+                   expiration = None
+
+                self._channel.basic_publish(exchange=self._exchange, 
+                                            routing_key=routing_key,
+                                            properties=pika.BasicProperties(
+                                                expiration = expiration,
+                                                content_type = content_type,
+                                                content_encoding = content_encoding,
+                                                headers = headers),
+                                            body=message)
+                done=True
+            except AMQPConnectionError as e:
+                publisher.handle_connection_error(e)
+    
 
