@@ -20,7 +20,9 @@ def subscribe():
     parser.add_argument('-x','--exchange', dest='exchange', metavar='name', help="Exchange name", required=True)
     parser.add_argument('--exchange-type', choices=['topic','fanout','direct','none'],  default='fanout', 
                         help="Exchange type")
- 
+    parser.add_argument('-V','--virtual-host', dest='vhost', default=None)
+    parser.add_argument('--credentials', metavar=('user', 'password'),  nargs=2)
+
     args = parser.parse_args()
 
     def terminate_handler(signum, frame):
@@ -29,9 +31,17 @@ def subscribe():
     signal.signal(signal.SIGTERM, terminate_handler)
     signal.signal(signal.SIGINT , terminate_handler)
 
+    kwargs = {}
+
+    if args.credentials is not None:
+        kwargs['credentials'] = pika.PlainCredentials(*args.credentials)
+
+    if args.vhost is not None:
+        kwargs['virtual_host'] = args.vhost
+
     # Connect
     subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay, 
-                                 reconnect_latency=0);
+                                 reconnect_latency=0, **kwargs);
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
@@ -43,7 +53,7 @@ def subscribe():
         output = sys.stdout
 
     def handler( message ):
-        print( message.body ), file=output)
+        print( message.body, file=output)
         subscriber.close()
 
     try:

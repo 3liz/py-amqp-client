@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ Implement pub/sub notifier as cli command
 """
-from .basic import BasicPublisher
+from .basic import pika, BasicPublisher
 
 import sys
 import argparse 
@@ -20,8 +20,10 @@ def publish():
                         help="Exchange type")
     parser.add_argument('-X','--header', metavar=('key','value'), dest='headers', nargs=2, action='append', help="Header")
     parser.add_argument('--expiration', metavar='milliseconds', default=None, type=int, help="Message expiration")
-    parser.add_argument('--content-type'    , nargs='?', default=None)
-    parser.add_argument('--content-encoding', nargs='?', default=None)
+    parser.add_argument('--content-type'    , default=None)
+    parser.add_argument('--content-encoding' , default=None)
+    parser.add_argument('-V','--virtual-host', dest='vhost', default=None)
+    parser.add_argument('--credentials', metavar=('user', 'password'),  nargs=2)
  
     args = parser.parse_args()
 
@@ -33,10 +35,18 @@ def publish():
         # Enable reading from pipe
         for line in sys.stdin:
             message += line
-  
+ 
+    kwargs = {}
+
+    if args.credentials is not None:
+        kwargs['credentials'] = pika.PlainCredentials(*args.credentials)
+
+    if args.vhost is not None:
+        kwargs['virtual_host'] = args.vhost
+
     # Connect
     publisher = BasicPublisher(args.host, reconnect_delay=args.reconnect_delay, 
-                               reconnect_latency=0);
+                               reconnect_latency=0, **kwargs);
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
