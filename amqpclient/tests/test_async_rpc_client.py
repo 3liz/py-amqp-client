@@ -69,11 +69,12 @@ def run_worker(queue = ROUTING_KEY, response_delay = 1, host='localhost'):
 
 
 @gen.coroutine
-def run_client(timeout):
-    client = AsyncRPCClient(host=args.host)
+def run_client(args):
+    client = AsyncRPCClient(host=args.host, reconnect_delay=args.reconnect_delay,
+                                            reconnect_latency=args.latency)
     client.set_msg_expiration(8000)
     yield client.connect()
-    responses = yield { i:client.call("=> request %s" % i,ROUTING_KEY,timeout=timeout)  for i in range(args.requests) }  
+    responses = yield { i:client.call("=> request %s" % i,ROUTING_KEY,timeout=args.timeout)  for i in range(args.requests) }  
     for i,rv in responses.items():
         print('***',i,rv)
     client.close()
@@ -90,7 +91,9 @@ if __name__ == "__main__":
     parser.add_argument('--timeout', nargs='?', type=int,  default=8, help="request timeout")
     parser.add_argument('--delay', nargs='?', type=int,  default=1, help="worker delay")
     parser.add_argument('--logging', choices=['debug', 'info', 'warning', 'error'], default='info', help="set log level")
-        
+    parser.add_argument('--latency'  , type=float, default=0.200, help="set reconnection latency")
+    parser.add_argument('--reconnect-delay',  type=float, default=5, help="Reconnect delay")
+
     args = parser.parse_args(sys.argv[1:])
     
     logger = logging.getLogger()
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     procs = [run_worker(response_delay=args.delay, host=args.host) for _ in range(args.workers)]
 
     try:
-        IOLoop.current().run_sync(partial(run_client,args.timeout))
+        IOLoop.current().run_sync(partial(run_client,args))
     finally:
         for p in procs:
             p.terminate()

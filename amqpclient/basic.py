@@ -24,7 +24,7 @@ class CloseConnection(Exception):
 class BlockingConnection(object):
     """ Define a basic blocking connection with reconnect fallback 
     """       
-    def __init__( self,  host, port=None, logger_name=None, 
+    def __init__( self,  host, port=None, logger=None, 
                   reconnect_delay=5, 
                   reconnect_latency=0.200,
                    **connection_params ):
@@ -35,7 +35,7 @@ class BlockingConnection(object):
             :param float reconnect_delay: reconnection delay when trying to reconnect all nodes (in seconds)
             :param float reconnect_latency: latency between reconnection attempts (in seconds)
         """
-        self._logger = logging.getLogger(logger_name)
+        self._logger = logger or logging.getLogger()
         self._reconnect_delay = reconnect_delay
         self._reconnect_latency = reconnect_latency
         self._closing = False
@@ -88,7 +88,8 @@ class BlockingConnection(object):
                 sleep(self._reconnect_delay)
             else:
                 self._logger.error("AMQP no nodes responding...")
-        elif self._reconnect_latency > 0:
+                raise RuntimeError("Aborting AMQP connection")
+        else:
             self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
             sleep(self._reconnect_latency)     
         
@@ -288,5 +289,5 @@ class BasicPublisher(BlockingConnection):
                 done=True
             except AMQPConnectionError as e:
                 publisher.handle_connection_error(e)
-    
+   
 

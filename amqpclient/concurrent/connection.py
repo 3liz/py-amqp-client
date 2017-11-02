@@ -8,14 +8,14 @@ import traceback
 
 from pika.adapters import TornadoConnection
 from tornado.ioloop import IOLoop
-from tornado.concurrent import TracebackFuture, chain_future
+from tornado.concurrent import Future, chain_future
 
 
 def _patch_method( obj, method_name, wrapper=lambda x:x ):
     """ Monkey patch bound method """
     real_bound_method = getattr(obj,method_name)
     def patched_method( self, **kwargs ):
-        future = TracebackFuture()
+        future = Future()
         real_bound_method(lambda rv: future.set_result(wrapper(rv)), **kwargs)
         return future
     setattr(obj,method_name,patched_method.__get__(obj))
@@ -42,7 +42,7 @@ class AsyncConnection(object):
     """ Asynchronous connection 
     """
 
-    def __init__(self, host, port=None, logger_name=None,
+    def __init__(self, host, port=5672, logger=None,
                  reconnect_delay = 5, reconnect_latency=0.200,
                  stop_ioloop_on_close=False,
                  **connection_params):
@@ -60,7 +60,7 @@ class AsyncConnection(object):
 
         self._connection = None
         self._closing = False
-        self._logger = logging.getLogger(logger_name)
+        self._logger = logger or logging.getLogger()
         self._reconnect_delay = reconnect_delay
         self._reconnect_latency = reconnect_latency
         self._cnxindex = 0 # Use round-robin strategy for reconnection
@@ -133,7 +133,7 @@ class AsyncConnection(object):
         if self._future is not None:
             return self._future
 
-        future = TracebackFuture()
+        future = Future()
        
         # Return immediately if the connection is established
         if self._connection is not None:
@@ -150,7 +150,14 @@ class AsyncConnection(object):
         """ Handle reconnection
         """
         def error_handler(_unused, message):
-            self.handle_connection_error(message)
+            try:
+              self.handle_connection_error(message)
+            except Exception as e:
+              # Handle abort connection exception
+              if self._future:
+                  self._future.set_exception(e)
+              else:
+                  raise
 
         def open_handler( conn ):
             # Clear our future
@@ -158,6 +165,7 @@ class AsyncConnection(object):
             self._future = None
             self._connection = conn
             if reconnect:
+                # Execute all registered connection callbacks
                 self._execute_callbacks()
             if future is not None:
                 future.set_result(conn)
@@ -191,8 +199,12 @@ class AsyncConnection(object):
         self._cnxindex = (self._cnxindex + 1) % len(self._cnxparams)
         if self._cnxindex == 0:
             # All nodes all been tried
-            self._logger.error("AMQP no nodes responding, waiting {} s before new attempts".format(self._reconnect_delay))
-            self._ioloop.call_later(self._reconnect_delay, self._reconnect)
+            if self._reconnect_delay > 0:
+                self._logger.error("AMQP no nodes responding, waiting {} s before new attempts".format(self._reconnect_delay))
+                self._ioloop.call_later(self._reconnect_delay, self._reconnect)
+            else:
+                self._logger.error("AMQP no nodes responding...")
+                raise RuntimeError("Aborting AMQP connection")
         else:
             self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
             self._ioloop.call_later(self._reconnect_latency, self._reconnect)
@@ -211,7 +223,6 @@ class AsyncConnection(object):
             self._connection = None
             self._logger.warning("AMQP Connection closed unexpectedly:{}:{}".format(reply_code, reply_text))
             self._reconnect()
-
 
 
 class AsyncConnectionJob(object): 
@@ -255,7 +266,7 @@ class AsyncConnectionJob(object):
     def connect( self, *args, **kwargs):
         """ Open the connection and initialize the channel
         """
-        future = TracebackFuture()
+        future = Future()
 
         def callback( f ):
             try:
@@ -270,6 +281,7 @@ class AsyncConnectionJob(object):
         self.io_loop.add_future(connection_future, callback)
 
         return future
+
 
 
 

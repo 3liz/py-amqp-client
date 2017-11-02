@@ -32,6 +32,8 @@ AMQP_HOST:=localhost
 test:
 	@echo "INFO: tests requires a running amqp server"
 	$(PYTHON) -m amqpclient.tests.test_async_subscriber --host $(AMQP_HOST) --reconnect-delay=0
+	$(PYTHON) -m amqpclient.tests.test_async_rpc_worker --host $(AMQP_HOST) --reconnect-delay=0
+	$(PYTHON) -m amqpclient.tests.test_async_rpc_client --host $(AMQP_HOST) --reconnect-delay=0
 
 # Build dependencies
 deps: dirs
