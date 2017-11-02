@@ -1,9 +1,15 @@
 from setuptools import setup, find_packages, Extension
 from pip.req import parse_requirements
-from imp import load_source
 import os
 
-VER = load_source("version", 'liz_amqp/version.py')
+def load_source(name, path):
+    from importlib.util import spec_from_file_location, module_from_spec
+    spec = spec_from_file_location(name, path)
+    mod  = module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+VER = load_source("version", 'amqpclient/version.py')
 
 kwargs = {}
 
@@ -16,7 +22,7 @@ if os.path.exists(requirements):
     kwargs['install_requires']=list(str(ir.req) for ir in parse_requirements(requirements, session=False))
 
 setup(
-    name='liz-amqp',
+    name='py-amqp-client',
     version=VER.__version__,
     author='3Liz',
     author_email='infos@3liz.org',
@@ -24,7 +30,7 @@ setup(
     maintainer_email='dmarteau@3liz.org',
     description=VER.__description__,
     url='',
-    packages=find_packages(include="liz_amqp"),
+    packages=find_packages(include=['amqpclient','amqpclient.*']),
     entry_points={
         'console_scripts': [],
     },
@@ -32,7 +38,6 @@ setup(
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX",
         "Topic :: Communications",

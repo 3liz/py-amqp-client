@@ -1,32 +1,55 @@
-.PHONY: qgis python manifest dockerfile
+.PHONY: test 
 
-ifndef FABRIC
-FABRIC:=$(shell [ -e .fabricrc ] && echo "fab -c .fabricrc" || echo "fab")
-endif
+BUILDID=$(shell date +"%Y%m%d%H%M")
+COMMITID=$(shell git rev-parse --short HEAD)
 
-ifndef PYPISERVER
 PYPISERVER:=storage
-endif
 
-BUILDDIR=${shell pwd}/build
+BUILDDIR=build
 DIST=${BUILDDIR}/dist
 
-build: manifest
+MANIFEST=factory.manifest
+
+PYTHON:=python3
+
+ifdef REGISTRY_URL
+	REGISTRY_PREFIX=$(REGISTRY_URL)/
+endif
+
+DOCKER_IMAGE=$(REGISTRY_PREFIX)python-3.6:latest
+
+dirs:
 	mkdir -p $(DIST)
-	python setup.py bdist_wheel --dist-dir=$(DIST)
 
 manifest:
-	mkdir -p $(DIST)
-	$(FABRIC) create_manifest:$(shell python setup.py --name),versiontag=$(shell python setup.py --version)
+	echo name=$(shell $(PYTHON) setup.py --name) > $(MANIFEST) && \
+		echo version=$(shell $(PYTHON) setup.py --version) >> $(MANIFEST) && \
+		echo buildid=$(BUILDID)   >> $(MANIFEST) && \
+		echo commitid=$(COMMITID) >> $(MANIFEST)
 
-upload:
-	twine upload -r $(PYPISERVER) $(DIST)/* --cert $(TWINE_CERT) 
+AMQP_HOST:=localhost
+
+test:
+	@echo "INFO: tests requires a running amqp server"
+	$(PYTHON) -m amqpclient.tests.test_async_subscriber --host $(AMQP_HOST) --reconnect-delay=0
 
 # Build dependencies
-deps:
-	mkdir -p $(DIST)
+deps: dirs
 	pip wheel -w $(DIST) -r requirements.txt
 
+wheel: deps
+	mkdir -p $(DIST)
+	$(PYTHON) setup.py bdist_wheel --dist-dir=$(DIST)
+
+deliver:
+	twine upload -r $(PYPISERVER) $(DIST)/*
+
+dist: dirs manifest
+	$(PYTHON) setup.py sdist --dist-dir=$(DIST)
+
 clean:
-	rm -rf build
+	rm -rf $(BUILDDIR)
+
+
+
 

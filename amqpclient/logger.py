@@ -1,6 +1,6 @@
 # -*- encoding=utf-8 -*-
 #
-# Copyrights 2106 3Liz
+# Copyrights 2016-2017 3Liz
 # Author: David Marteau (dmarteau@3liz.com)
 #
 """
@@ -8,6 +8,7 @@ Define a logger based on amqp
 """
 
 import os
+import sys
 import logging
 from tornado.ioloop import IOLoop
 from .concurrent import AsyncPublisher
@@ -16,7 +17,8 @@ class Handler(logging.Handler):
     """ A logging handler that push notifications to RabbitMQ
     """
     
-    def __init__(self, exchange, routing_key,
+    def __init__(self, 
+                exchange, routing_key,
                 connection=None,
                 host=None,
                 level=logging.NOTSET,
@@ -26,9 +28,9 @@ class Handler(logging.Handler):
             exc_info = f.exc_info()
             if exc_info is not None:
                 traceback.print_exception(*exc_info)
-                logging.error("Failed to initialize AMQP logger.")
+                print("Failed to initialize AMQP logger.", file=sys.stderr)
             else:
-                logging.info("AMQP logger initialized.")
+                print("AMQP logger initialized.", file=sys.stderr)
 
         self._routing_key = routing_key
         self._client      = AsyncPublisher(connection=connection, host=host)
@@ -36,8 +38,8 @@ class Handler(logging.Handler):
         self._client.set_msg_expiration(3000)
 
         IOLoop.current().add_future(self._client.connect(
-                                                 exchange=exchange,
-                                                 exchange_type='topic'),
+                                          exchange=exchange,
+                                          exchange_type='topic'),
                                       handle_exception)
 
         super(Handler, self).__init__(level)
