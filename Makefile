@@ -16,7 +16,7 @@ ifdef REGISTRY_URL
 	REGISTRY_PREFIX=$(REGISTRY_URL)/
 endif
 
-DOCKER_IMAGE=$(REGISTRY_PREFIX)python-3.6:latest
+DOCKER_IMAGE=$(REGISTRY_PREFIX)python:3.6-alpine
 
 dirs:
 	mkdir -p $(DIST)
@@ -53,5 +53,35 @@ clean:
 	rm -rf $(BUILDDIR)
 
 
+PIP_CONFIG_FILE:=pip.conf
+BECOME_USER:=$(shell id -u)
 
+docker-test-run:
+	docker network create net_$(COMMITID)
+	docker run -d --rm --name amqp-rabbit-test-$(COMMITID) --net net_$(COMMITID)  $(REGISTRY_PREFIX)rabbitmq:3.6 
+	mkdir -p $(HOME)/.local
+	docker run --rm --name py-amqp-test-$(COMMITID) -w /src \
+		-u $(BECOME_USER) \
+		-v $(shell pwd):/src \
+		-v $(HOME)/.local:/.local \
+		-v $(HOME)/.config/pip:/.pipconf  \
+		-v $(HOME)/.cache/pip:/.pipcache \
+		-e PIP_CONFIG_FILE=/.pipconf/$(PIP_CONFIG_FILE) \
+		-e PIP_CACHE_DIR=/.pipcache \
+		-e AMQP_HOST=amqp-rabbit-test-$(COMMITID) \
+		--net net_$(COMMITID) \
+		$(DOCKER_IMAGE) ./run_tests.sh
+	@echo "TESTS SUCCEEDED"
+
+docker-test-cleanup:
+	@docker stop amqp-rabbit-test-$(COMMITID)|| echo "Failed to remove container amqp-rabbit-test-$(COMMITID)"
+	@docker network rm net_$(COMMITID) || echo "Failed to remove network net_$(COMMITID)"
+
+# Clean up things if test fail
+docker-test-failed: docker-test-cleanup
+	@echo "TESTS FAILED !"
+	@false
+
+docker-test:
+	$(MAKE) docker-test-run docker-test-cleanup || $(MAKE) docker-test-failed
 

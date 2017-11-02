@@ -77,7 +77,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
 
     def close(self):
         self._stop_consumming()
@@ -182,7 +182,7 @@ class AsyncRPCClient(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
 
     def close(self):
         self._stop_consumming()

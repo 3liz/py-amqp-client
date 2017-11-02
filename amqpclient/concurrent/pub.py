@@ -38,7 +38,7 @@ class AsyncSubscriber(AsyncConnectionJob):
         self._channel = yield connection.channel()
 
         if exchange_type is not None:
-            yield self._channel.exchange_declare(exchange=exchange, type=exchange_type)
+            yield self._channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
 
         m  = yield self._channel.queue_declare(exclusive=True)
         if not routing_keys:
@@ -66,7 +66,7 @@ class AsyncSubscriber(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
 
     def close(self):
         self._stop_consumming()
@@ -121,7 +121,7 @@ class AsyncPublisher(AsyncConnectionJob):
         self._exchange = exchange
 
         if exchange_type is not None:
-            yield self._channel.exchange_declare(exchange=self._exchange, type=exchange_type)
+            yield self._channel.exchange_declare(exchange=self._exchange, exchange_type=exchange_type)
 
     def close(self):
         if self._channel:

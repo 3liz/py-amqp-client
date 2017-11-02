@@ -181,7 +181,7 @@ class BasicSubscriber(BlockingConnection):
         Creating a publisher:
 
             channel = connection.channel()
-            channel.exchange_declare(exchange=topic, type='fanout')
+            channel.exchange_declare(exchange=topic, exchange_type='fanout')
             self._channel = channel
 
             # publish:
@@ -195,7 +195,7 @@ class BasicSubscriber(BlockingConnection):
                 channel = connection.channel()
 
                 if exchange_type is not None:
-                    channel.exchange_declare(exchange=exchange, type=exchange_type)
+                    channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
             
                 result = channel.queue_declare(exclusive=True) 
                 queue_name = result.method.queue
@@ -268,7 +268,7 @@ class BasicPublisher(BlockingConnection):
                     connection = self.connect()
                     channel = connection.channel()
                     if self._exchange_type != 'none':
-                        channel.exchange_declare(exchange=self._exchange, type=self._exchange_type)
+                        channel.exchange_declare(exchange=self._exchange, exchange_type=self._exchange_type)
      
                     self._channel    = channel
                     self._connection = connection
