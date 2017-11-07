@@ -1,13 +1,17 @@
 from setuptools import setup, find_packages, Extension
 from pip.req import parse_requirements
 import os
+import sys
 
-def load_source(name, path):
-    from importlib.util import spec_from_file_location, module_from_spec
-    spec = spec_from_file_location(name, path)
-    mod  = module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+if (sys.version_info > (3, 4)):
+    def load_source(name, path):
+        from importlib.util import spec_from_file_location, module_from_spec
+        spec = spec_from_file_location(name, path)
+        mod  = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+else:
+    from imp import load_source
 
 VER = load_source("version", 'amqpclient/version.py')
 
@@ -38,7 +42,7 @@ setup(
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 2.7",
         "Operating System :: POSIX",
         "Topic :: Communications",
         "Topic :: Software Development :: Libraries :: Python Modules",

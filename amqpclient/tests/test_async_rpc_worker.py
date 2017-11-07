@@ -2,6 +2,8 @@
 """
     Tests async client
 """
+from __future__ import (absolute_import, division, print_function)
+
 import logging
 from tornado.ioloop import IOLoop
 from tornado import gen

@@ -6,6 +6,8 @@
 """
 Define a logger based on amqp
 """
+# Keep python 2 compat
+from __future__ import (absolute_import, division, print_function)
 
 import os
 import sys
@@ -22,7 +24,9 @@ class Handler(logging.Handler):
                 connection=None,
                 host=None,
                 level=logging.NOTSET,
-                formatstr='%(asctime)s\t%(levelname)s\t%(hostname)s\t[%(process)d]\t%(message)s'):
+                formatstr='%(asctime)s\t%(levelname)s\t%(hostname)s\t[%(process)d]\t%(message)s',
+                content_type='text/plain',
+                message_ttl=3000):
 
         def handle_exception(f):
             exc_info = f.exc_info()
@@ -32,10 +36,11 @@ class Handler(logging.Handler):
             else:
                 print("AMQP logger initialized.", file=sys.stderr)
 
-        self._routing_key = routing_key
-        self._client      = AsyncPublisher(connection=connection, host=host)
-        self._hostname    = os.uname()[1]
-        self._client.set_msg_expiration(3000)
+        self._content_type = content_type
+        self._routing_key  = routing_key
+        self._client       = AsyncPublisher(connection=connection, host=host)
+        self._hostname     = os.uname()[1]
+        self._client.set_msg_expiration(msg_expiration)
 
         IOLoop.current().add_future(self._client.connect(
                                           exchange=exchange,
@@ -68,7 +73,7 @@ class Handler(logging.Handler):
        record.__dict__.update(hostname=self._hostname)
        self._client.publish(self.format(record),
                 routing_key = self._routing_key % record.__dict__,
-                content_type ='tex/plain',
+                content_type = self._content_type,
                 content_encoding ='utf-8')
 
 

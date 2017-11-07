@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """ Implement pub/sub notifier as cli command
 """
+
+# XXX Keep python2 compatibility 
+from __future__ import (absolute_import, division, print_function)
+
 from .basic import BasicSubscriber
 
 import signal
