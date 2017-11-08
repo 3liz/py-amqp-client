@@ -126,13 +126,14 @@ class BasicWorker(BlockingConnection):
                     """ Define a reply method that will be passed to the handler
                     """
                     chan.basic_publish(exchange='',
-                                       routing_key=props.reply_to,
-                                       properties=pika.BasicProperties(correlation_id = props.correlation_id,
-                                                               expiration = props.expiration,
-                                                               content_type = content_type,
-                                                               content_encoding = content_encoding,
-                                                               headers = headers,
-                                                               delivery_mode=1),
+                               routing_key=props.reply_to,
+                               properties=pika.BasicProperties(
+                                   correlation_id = props.correlation_id,
+                                   expiration = props.expiration,
+                                   content_type = content_type,
+                                   content_encoding = content_encoding,
+                                   headers = headers,
+                                   delivery_mode=1),
                                body=response)
                     chan.basic_ack(delivery_tag = method.delivery_tag)
 
