@@ -44,7 +44,7 @@ class BlockingConnection(object):
         self._connection = None
         self._channel = None
 
-        if isinstance(host, str ):
+        if not isinstance(host, (tuple, list)):
             host = [host]
      
         self._cnxparams = [pika.ConnectionParameters(host=h, port=port, **connection_params) for h in host]
