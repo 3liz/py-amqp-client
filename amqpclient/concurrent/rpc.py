@@ -8,6 +8,7 @@ Define rpc client/server library
     The client declare a transient exclusive queue
 
 """
+import sys
 import os
 import pika
 import uuid
@@ -56,6 +57,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
                 Will be called as (body, cid, reply_fun)
                 IMPORTANT: handler must be *reentrant*            
         """
+
         self._channel = None
         self._routing_key = routing_key
         self._channel = yield connection.channel()

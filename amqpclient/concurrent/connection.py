@@ -149,6 +149,7 @@ class AsyncConnection(object):
     def _reconnect(self, reconnect=True):
         """ Handle reconnection
         """
+
         def error_handler(_unused, message):
             try:
               self.handle_connection_error(message)
@@ -160,6 +161,7 @@ class AsyncConnection(object):
                   raise
 
         def open_handler( conn ):
+            self._logger.info("AMQP Connection established")
             # Clear our future
             future = self._future 
             self._future = None
@@ -187,7 +189,7 @@ class AsyncConnection(object):
      
             See the on_connection_close method.
         """
-        self._logger.error("AMQP connection error {}".format(error))    
+        self._logger.error("AMQP Connection Error: {}".format(error))    
             
         if self._closing:
             return
@@ -219,7 +221,9 @@ class AsyncConnection(object):
         :param str reply_text: The server provided reply_text if given
 
         """
-        if not self._closing:
+        # XXX Attempt to reconnect only if connection has already  been established
+        # This prevents race conditions with handle_connection_error
+        if not self._closing and self._connection:
             self._connection = None
             self._logger.warning("AMQP Connection closed unexpectedly:{}:{}".format(reply_code, reply_text))
             self._reconnect()
