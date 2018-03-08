@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ Asyncronous pub/sub
 
     Supports for 'fanout', 'direct' and 'topic' exchanges
@@ -8,8 +7,7 @@ import os
 import pika
 import weakref
 import traceback
-from tornado.ioloop import IOLoop
-from tornado import gen
+import asyncio
 from collections import namedtuple
 from .connection import AsyncConnectionJob
 
@@ -30,27 +28,26 @@ class AsyncSubscriber(AsyncConnectionJob):
         self._channel = None
         super(AsyncSubscriber, self).__init__(*args, **kwargs)
 
-    @gen.coroutine
-    def initialize( self, connection, exchange, handler, exchange_type='fanout',
+    async def initialize( self, connection, exchange, handler, exchange_type='fanout',
                           routing_keys=[]):
 
         self._channel = None
-        self._channel = yield connection.channel()
+        self._channel = await connection.channel()
 
         if exchange_type is not None:
-            yield self._channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
+            await self._channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
 
-        m  = yield self._channel.queue_declare(exclusive=True)
+        m = await self._channel.queue_declare(exclusive=True)
         if not routing_keys:
             # No routing keys: support for 'fanout'
-            yield self._channel.queue_bind(exchange=exchange, queue=m.method.queue) 
+            await self._channel.queue_bind(exchange=exchange, queue=m.method.queue) 
         else:
             # Bind onto multiple routing_keys: supports for
             # 'direct' and 'topic' exchange type
             if isinstance(routing_keys, str):
                 routing_keys = [routing_keys]
-            yield [self._channel.queue_bind(exchange=exchange, queue=m.method.queue,
-                                            routing_key=k) for k in routing_keys]
+            await asyncio.wait([self._channel.queue_bind(exchange=exchange, queue=m.method.queue,
+                                            routing_key=k) for k in routing_keys])
 
         self._message_handler = handler  
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
@@ -112,16 +109,15 @@ class AsyncPublisher(AsyncConnectionJob):
         else:
             self._expiration = None
 
-    @gen.coroutine
-    def initialize( self, connection, exchange, exchange_type='fanout' ):
+    async def initialize( self, connection, exchange, exchange_type='fanout' ):
         """ Initialize the publisher
         """
         self._channel = None
-        self._channel = yield connection.channel()
+        self._channel = await connection.channel()
         self._exchange = exchange
 
         if exchange_type is not None:
-            yield self._channel.exchange_declare(exchange=self._exchange, exchange_type=exchange_type)
+            await self._channel.exchange_declare(exchange=self._exchange, exchange_type=exchange_type)
 
     def close(self):
         if self._channel:

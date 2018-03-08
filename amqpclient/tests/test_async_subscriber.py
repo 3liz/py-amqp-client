@@ -1,19 +1,13 @@
-# -*- coding: utf-8 -*-
 """ Tests async subscriber 
 """
-from __future__ import (absolute_import, division, print_function)
-
+import asyncio
 import logging
-from tornado.ioloop import IOLoop
-from tornado import gen
-from functools import partial
 
 from ..concurrent import AsyncPublisher, AsyncSubscriber, AsyncConnection
 
 EXCHANGE = "test_pubsub"
 
-@gen.coroutine
-def run_test( args  ):
+async def run_test( args  ):
         
     def message_handler( request ):
         logging.info("===> Received {} {}".format(request.key, request.body))
@@ -24,14 +18,14 @@ def run_test( args  ):
     sub = AsyncSubscriber(connection=connection)
     pub = AsyncPublisher(connection=connection)
  
-    yield sub.connect(EXCHANGE, message_handler)
-    yield pub.connect(EXCHANGE)
+    await sub.connect(EXCHANGE, message_handler)
+    await pub.connect(EXCHANGE)
 
     # run calls
     for i in range(args.requests):
         pub.publish("message {}".format(i)) 
 
-    yield gen.sleep(2)
+    await asyncio.sleep(2)
 
     sub.close()
     pub.close()
@@ -54,7 +48,7 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, args.logging.upper()))
     
-    IOLoop.instance().run_sync(partial(run_test, args))
+    asyncio.get_event_loop().run_until_complete(run_test(args))
  
     print("Done.")
     

@@ -8,14 +8,12 @@ Define rpc client/server library
     The client declare a transient exclusive queue
 
 """
+import asyncio
 import sys
 import os
 import pika
 import uuid
 import traceback
-from tornado import gen
-from tornado.ioloop import IOLoop
-from tornado.concurrent import TracebackFuture
 from collections import namedtuple
 
 from .connection import AsyncConnectionJob
@@ -41,8 +39,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
 
         super(AsyncRPCWorker, self).__init__(*args, **kwargs)
 
-    @gen.coroutine
-    def initialize( self, connection, handler, routing_key ):
+    async def initialize( self, connection, handler, routing_key ):
         """ Connect to queue 'routing_key'
         
             This method sets up the consumer by first calling
@@ -60,9 +57,9 @@ class AsyncRPCWorker(AsyncConnectionJob):
 
         self._channel = None
         self._routing_key = routing_key
-        self._channel = yield connection.channel()
+        self._channel = await connection.channel()
            
-        yield self._channel.queue_declare(queue=self._routing_key)
+        await self._channel.queue_declare(queue=self._routing_key)
 
         self._reply_handler = handler
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
@@ -159,13 +156,12 @@ class AsyncRPCClient(AsyncConnectionJob):
         else:
             self._expiration = None
 
-    @gen.coroutine
-    def initialize( self, connection ):
+    async def initialize( self, connection ):
         """ Create channel for rpc messaging
         """
         self._channel = None
-        self._channel = yield connection.channel()
-        method_frame  = yield self._channel.queue_declare(exclusive=True)
+        self._channel = await connection.channel()
+        method_frame  = await self._channel.queue_declare(exclusive=True)
 
         # Since the channel is now open we declare exclusive reply queue and 
         # start a consummer on it 
@@ -197,8 +193,8 @@ class AsyncRPCClient(AsyncConnectionJob):
         for cid, future in self._callbacks.items():
             future.set_exception( self.ConnectionClosed() )
 
-    def call(self, body, routing_key, timeout=5, content_type=None, content_encoding=None, 
-             headers=None, timeout_value=None):
+    async def call(self, body, routing_key, timeout=5, content_type=None, content_encoding=None, 
+             headers=None):
         """ Send message to rabbitMQ server
        
             :param routing key
@@ -213,7 +209,7 @@ class AsyncRPCClient(AsyncConnectionJob):
         
         assert self._channel, "AMQP no connection !"
 
-        future = TracebackFuture()
+        future = self.io_loop.create_future()
         
         # Generate a cid
         cid = str(uuid.uuid4())
@@ -233,21 +229,13 @@ class AsyncRPCClient(AsyncConnectionJob):
                                    body=body,
                                    mandatory=True)
 
-        # Handle timeout
-        if timeout is not None:
-            io_loop = self.io_loop
-            logger  = self.logger
-            def timeout_callback():
-                self._callbacks.pop(cid)
-                logger.error("Caught Timeout for RPC message %s" % cid)
-                if timeout_value is not None:
-                    future.set_result(timeout_value)
-                else:
-                    future.set_exception(self.TimeoutError()) 
-            timeout_handle = io_loop.call_later(timeout, timeout_callback)
-            future.add_done_callback(lambda future: io_loop.remove_timeout(timeout_handle))
-            
-        return future
+        try:
+            return await asyncio.wait_for(future, timeout)
+        except asyncio.TimeoutError:
+            self._callbacks.pop(cid)
+            logger.error("Caught Timeout for RPC message %s" % cid)
+            raise self.TimeoutError()
+
  
     # handlers
 

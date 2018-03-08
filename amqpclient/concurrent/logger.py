@@ -1,18 +1,15 @@
-# -*- encoding=utf-8 -*-
 #
-# Copyrights 2016-2017 3Liz
+# Copyrights 2016-2018 3Liz
 # Author: David Marteau (dmarteau@3liz.com)
 #
 """
 Define a logger based on amqp
 """
-# Keep python 2 compat
-from __future__ import (absolute_import, division, print_function)
 
 import os
 import sys
 import logging
-from tornado.ioloop import IOLoop
+import asyncio
 from .pub import AsyncPublisher
 
 class Handler(logging.Handler):
@@ -28,24 +25,22 @@ class Handler(logging.Handler):
                 content_type='text/plain',
                 message_ttl=3000):
 
-        def handle_exception(f):
-            exc_info = f.exc_info()
-            if exc_info is not None:
-                traceback.print_exception(*exc_info)
-                print("Failed to initialize AMQP logger.", file=sys.stderr)
-            else:
-                print("AMQP logger initialized.", file=sys.stderr)
-
         self._content_type = content_type
         self._routing_key  = routing_key
         self._client       = AsyncPublisher(connection=connection, host=host)
         self._hostname     = os.uname()[1]
         self._client.set_msg_expiration(message_ttl)
 
-        IOLoop.current().add_future(self._client.connect(
-                                          exchange=exchange,
-                                          exchange_type='topic'),
-                                      handle_exception)
+        # Catche exception in connection
+        async def connect():
+            try:
+                await self._client.connect(exchange=exchange,exchange_type='topic')
+                print("AMQP logger initialized.", file=sys.stderr)
+            except Exception as e:
+                traceback.print_exception(*exc_info)
+                print("Failed to initialize AMQP logger.", file=sys.stderr)
+
+        asyncio.ensure_future( connect() )
 
         super(Handler, self).__init__(level)
         # Set formatter

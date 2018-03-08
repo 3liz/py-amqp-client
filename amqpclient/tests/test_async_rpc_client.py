@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     Tests async client
 """
@@ -10,10 +9,8 @@ import logging
 import pika
 import multiprocessing as mp
 import signal
+import asyncio
 from time import sleep
-from tornado.ioloop import IOLoop
-from tornado import gen
-from functools import partial
 
 from ..concurrent import AsyncRPCClient
 
@@ -70,14 +67,13 @@ def run_worker(queue = ROUTING_KEY, response_delay = 1, host='localhost'):
     return p
 
 
-@gen.coroutine
-def run_client(args):
+async def run_client(args):
     client = AsyncRPCClient(host=args.host, reconnect_delay=args.reconnect_delay,
                                             reconnect_latency=args.latency)
     client.set_msg_expiration(8000)
-    yield client.connect()
-    responses = yield { i:client.call("=> request %s" % i,ROUTING_KEY,timeout=args.timeout)  for i in range(args.requests) }  
-    for i,rv in responses.items():
+    await client.connect()
+    responses = await asyncio.gather(*[client.call("=> request %s" % i,ROUTING_KEY,timeout=args.timeout) for i in range(args.requests)])  
+    for i,rv in enumerate(responses):
         print('***',i,rv)
     client.close()
 
@@ -104,7 +100,7 @@ if __name__ == "__main__":
     procs = [run_worker(response_delay=args.delay, host=args.host) for _ in range(args.workers)]
 
     try:
-        IOLoop.current().run_sync(partial(run_client,args))
+        asyncio.get_event_loop().run_until_complete(run_client(args))
     finally:
         for p in procs:
             p.terminate()

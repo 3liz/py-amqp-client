@@ -5,10 +5,13 @@
 import logging
 import pika
 import traceback
+import asyncio
 
-from pika.adapters import TornadoConnection
-from tornado.ioloop import IOLoop
-from tornado.concurrent import Future, chain_future
+from pika.adapters import AsyncioConnection
+
+
+def Future():
+    return asyncio.get_event_loop().create_future()
 
 
 def _patch_method( obj, method_name, wrapper=lambda x:x ):
@@ -44,7 +47,6 @@ class AsyncConnection(object):
 
     def __init__(self, host, port=5672, logger=None,
                  reconnect_delay = 5, reconnect_latency=0.200,
-                 stop_ioloop_on_close=False,
                  **connection_params):
         """ Create a new instance of worker publisher
 
@@ -65,9 +67,8 @@ class AsyncConnection(object):
         self._reconnect_latency = reconnect_latency
         self._cnxindex = 0 # Use round-robin strategy for reconnection
         self._cnxparams = [pika.ConnectionParameters(host=h, port=port, **connection_params) for h in host]
-        self._ioloop    =  IOLoop.current()
+        self._io_loop    =  asyncio.get_event_loop()
         self._callbacks = [] 
-        self._stop_ioloop_on_close = stop_ioloop_on_close
         self._future = None
 
     def add_timeout(self, delay, callback, *args, **kwargs):
@@ -75,7 +76,7 @@ class AsyncConnection(object):
 
     @property
     def io_loop(self):
-        return self._ioloop
+        return self._io_loop
 
     @property
     def logger(self):
@@ -119,7 +120,7 @@ class AsyncConnection(object):
             except Exception as e:
                 handle_error(e)
                 traceback.print_exc()                        
-
+    
     def connect(self):
         """ Connects to RabbitMQ
            
@@ -176,12 +177,11 @@ class AsyncConnection(object):
             self.on_connection_close(reply_code, reply_text)
 
         cnxparams  = self._cnxparams[self._cnxindex]
-        connection = TornadoConnection(cnxparams,
+        connection = AsyncioConnection(cnxparams,
                     on_open_callback       = open_handler,
                     on_open_error_callback = error_handler,
-                    on_close_callback      = closed_handler,
-                    stop_ioloop_on_close   = self._stop_ioloop_on_close, 
-                    custom_ioloop          = self._ioloop)    
+                    on_close_callback      = closed_handler)
+
         _patch_connection(connection)
   
     def handle_connection_error(self, error):
@@ -267,24 +267,18 @@ class AsyncConnectionJob(object):
             self._connection.close()
         self._connection = None
 
-    def connect( self, *args, **kwargs):
+    async def connect( self, *args, **kwargs):
         """ Open the connection and initialize the channel
         """
-        future = Future()
+        # Set up connection
+        conn = await self._connection.connect()
 
-        def callback( f ):
-            try:
-                result = self.initialize(f.result(), *args, **kwargs)
-                chain_future( result, future )
-                # Register our reconnect callback
-                self._connection.add_reconnect_callback(self.initialize, *args, **kwargs)
-            except Exception as e:
-                future.set_exception(e)
+        # Initialize channels
+        await self.initialize(conn, *args, **kwargs) 
 
-        connection_future  = self._connection.connect()    
-        self.io_loop.add_future(connection_future, callback)
+        # Register are connection callback for reconnecting
+        self._connection.add_reconnect_callback(self.initialize, *args, **kwargs)
 
-        return future
 
 
 
