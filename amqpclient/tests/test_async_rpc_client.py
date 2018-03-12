@@ -95,6 +95,7 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
     
     logger = logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
     logger.setLevel(getattr(logging, args.logging.upper()))
     
     procs = [run_worker(response_delay=args.delay, host=args.host) for _ in range(args.workers)]

@@ -46,6 +46,7 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
     
     logger = logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
     logger.setLevel(getattr(logging, args.logging.upper()))
     
     asyncio.get_event_loop().run_until_complete(run_test(args))

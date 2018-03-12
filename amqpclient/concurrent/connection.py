@@ -67,7 +67,7 @@ class AsyncConnection(object):
         self._reconnect_latency = reconnect_latency
         self._cnxindex = 0 # Use round-robin strategy for reconnection
         self._cnxparams = [pika.ConnectionParameters(host=h, port=port, **connection_params) for h in host]
-        self._io_loop    =  asyncio.get_event_loop()
+        self._ioloop    =  asyncio.get_event_loop()
         self._callbacks = [] 
         self._future = None
 
@@ -76,7 +76,7 @@ class AsyncConnection(object):
 
     @property
     def io_loop(self):
-        return self._io_loop
+        return self._ioloop
 
     @property
     def logger(self):
@@ -94,7 +94,8 @@ class AsyncConnection(object):
         self._closing    = True
 
     def add_reconnect_callback( self, callback, *args, **kwargs ):
-        """ add a callback to the open channel list. 
+        """ Add a callback to run when reconnecting. 
+
             If the connection has to be reinitialized,
             then all registered channels will be reinitialized
         """
@@ -103,23 +104,18 @@ class AsyncConnection(object):
     def remove_callback( self, callback ):
         self._callbacks = [c for c in self._callbacks if c != callback]
 
-    def _execute_callbacks(self):
+    async def _execute_callbacks(self):
         """ Execute all registered callbacks
 
             Called only when AMPQ connection is opened, this
             occurs on reconnection
         """
-        def handle_error( exc ):
-            if exc is not None:
-                self._logger.error("Callback failed with exception <{}>".format(exc))
-
         for callback, args, kwargs in self._callbacks:
             try:
-                result = callback(self._connection, *args, **kwargs)
-                result.add_done_callback( lambda f: handle_error(f.exception()) )
+                await callback(self._connection, *args, **kwargs)
             except Exception as e:
-                handle_error(e)
-                traceback.print_exc()                        
+                traceback.print_exc()
+                self._logger.error("Callback failed with exception <{}>".format(exc))
     
     def connect(self):
         """ Connects to RabbitMQ
@@ -168,8 +164,8 @@ class AsyncConnection(object):
             self._future = None
             self._connection = conn
             if reconnect:
-                # Execute all registered connection callbacks
-                self._execute_callbacks()
+                # Schedule all registered connection callbacks
+                asyncio.ensure_future(self._execute_callbacks())
             if future is not None:
                 future.set_result(conn)
 
@@ -276,7 +272,7 @@ class AsyncConnectionJob(object):
         # Initialize channels
         await self.initialize(conn, *args, **kwargs) 
 
-        # Register are connection callback for reconnecting
+        # Register our initialize callback to use when reconnecting
         self._connection.add_reconnect_callback(self.initialize, *args, **kwargs)
 
 
