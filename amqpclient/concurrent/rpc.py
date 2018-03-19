@@ -58,7 +58,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
         self._channel = None
         self._routing_key = routing_key
         self._channel = await connection.channel()
-           
+
         await self._channel.queue_declare(queue=self._routing_key)
 
         self._reply_handler = handler
@@ -68,7 +68,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
         self._consumer_tag  = self._channel.basic_consume(self.on_message, queue=self._routing_key)
 
     def on_consumer_cancelled(self):
-        self._logger.warn("AMQP Consummer cancelled")
+        self.logger.warn("AMQP Consummer cancelled")
 
     def _stop_consumming(self):
         """Tell RabbitMQ that you would like to stop consuming by sending the
@@ -172,7 +172,7 @@ class AsyncRPCClient(AsyncConnectionJob):
                                                          queue=self._callback_queue)
 
     def on_consumer_cancelled(self):
-        self._logger.warn("AMQP Consummer cancelled")
+        self.logger.warn("AMQP Consummer cancelled")
 
     def _stop_consumming(self):
         """Tell RabbitMQ that you would like to stop consuming by sending the
@@ -233,7 +233,7 @@ class AsyncRPCClient(AsyncConnectionJob):
             return await asyncio.wait_for(future, timeout)
         except asyncio.TimeoutError:
             self._callbacks.pop(cid)
-            logger.error("Caught Timeout for RPC message %s" % cid)
+            self.logger.error("Caught Timeout for RPC message %s" % cid)
             raise self.TimeoutError()
 
  
