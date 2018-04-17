@@ -1,7 +1,10 @@
 from setuptools import setup, find_packages, Extension
-from pip.req import parse_requirements
 import os
 import sys
+
+def parse_requirements( filename ):
+    with open( filename ) as fp:
+        return list(filter(None, (r.strip('\n ').partition('#')[0] for r in fp.readlines())))
 
 if (sys.version_info > (3, 4)):
     def load_source(name, path):
@@ -23,7 +26,7 @@ with open('README.md') as f:
 # Parse requirement file and transform it to setuptools requirements'''
 requirements = 'requirements.txt'
 if os.path.exists(requirements):
-    kwargs['install_requires']=list(str(ir.req) for ir in parse_requirements(requirements, session=False))
+    kwargs['install_requires']=parse_requirements(requirements)
 
 setup(
     name='py-amqp-client',
