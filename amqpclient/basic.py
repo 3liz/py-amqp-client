@@ -196,7 +196,7 @@ class BasicSubscriber(BlockingConnection):
             channel.basic_publish(exchange=topic, routing_key='', body=message)
     """
     def run(self, exchange, handler, exchange_type='fanout', routing_keys=[]):
-        while not self.closing:    
+        while not self.closing:
             try:
                 connection = self.connect() 
                 
@@ -232,7 +232,6 @@ class BasicSubscriber(BlockingConnection):
                 self._channel    = channel
                 self._logger.info("[{}] Subscriber ready".format(os.getpid()))
                 self._channel.start_consuming()
-    
             except AMQPConnectionError as e:
                 self.handle_connection_error(e)
             except CloseConnection:
@@ -296,6 +295,6 @@ class BasicPublisher(BlockingConnection):
                                             body=message)
                 done=True
             except AMQPConnectionError as e:
-                publisher.handle_connection_error(e)
+                self.handle_connection_error(e)
    
 

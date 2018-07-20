@@ -39,7 +39,9 @@ setup(
     url='',
     packages=find_packages(include=['amqpclient','amqpclient.*']),
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+                'amqpclient_subscribe = amqpclient.subscribe:subscribe',
+            ],
     },
     classifiers=[
         "Intended Audience :: Developers",

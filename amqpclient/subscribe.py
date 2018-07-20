@@ -29,7 +29,7 @@ def subscribe():
     parser.add_argument('-t','--topic', dest='routing_key', default='', help='Message topic')
     parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
     parser.add_argument('-x','--exchange', dest='exchange', metavar='name', help="Exchange name", required=True)
-    parser.add_argument('--exchange-type', choices=['topic','fanout','direct','none'],  default='fanout', 
+    parser.add_argument('--exchange-type', choices=['topic','fanout','direct','none'],  default='topic', 
                         help="Exchange type")
     parser.add_argument('-V','--virtual-host', dest='vhost', default=None)
     parser.add_argument('--credentials', metavar=('user', 'password'),  nargs=2)
@@ -42,7 +42,7 @@ def subscribe():
     signal.signal(signal.SIGTERM, terminate_handler)
     signal.signal(signal.SIGINT , terminate_handler)
 
-    kwargs = {}
+    kwargs = { 'port': 5672 }
 
     if args.credentials is not None:
         kwargs['credentials'] = pika.PlainCredentials(*args.credentials)
@@ -65,18 +65,15 @@ def subscribe():
 
     def handler( message ):
         print( message.body, file=output)
-        subscriber.close()
 
     try:
        subscriber.run(args.exchange, 
                       handler = handler, 
                       exchange_type=exchange_type,
                       routing_keys=args.routing_key)
-    except SystemExit as e:
+    except (KeyboardInterrupt, SystemExit) as e:
         print(e, file=sys.stderr)
         subscriber.close() 
 
-if __name__ == "__main__":
-    subscribe()
 
 
