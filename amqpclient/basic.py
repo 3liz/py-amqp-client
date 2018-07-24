@@ -269,6 +269,9 @@ class BasicPublisher(BlockingConnection):
 
         done=False
 
+        if expiration is not None:
+            expiration = "{:d}".format(expiration)
+
         while not done:
             try:
                 if self._connection is None:
@@ -279,11 +282,6 @@ class BasicPublisher(BlockingConnection):
      
                     self._channel    = channel
                     self._connection = connection
-
-                if expiration is not None:
-                   expiration = "{:d}".format(expiration)
-                else:
-                   expiration = None
 
                 self._channel.basic_publish(exchange=self._exchange, 
                                             routing_key=routing_key,
