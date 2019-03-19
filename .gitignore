@@ -5,13 +5,11 @@ dist
 *.egg.info
 *.egg-info
 *.log
-.fabricrc
 
+.local
 .cache
 __output__
 __pycache__
 
 *~
-
-MANIFEST
 

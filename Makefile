@@ -53,20 +53,19 @@ clean:
 	rm -rf $(BUILDDIR)
 
 
-PIP_CONFIG_FILE:=pip.conf
 BECOME_USER:=$(shell id -u)
+
+LOCAL_HOME ?= $(shell pwd)
 
 docker-test-run:
 	docker network create net_$(COMMITID)
 	docker run -d --rm --name amqp-rabbit-test-$(COMMITID) --net net_$(COMMITID)  $(REGISTRY_PREFIX)rabbitmq:3.6 
-	mkdir -p $(HOME)/.local
+	mkdir -p $(HOME)/.local $(LOCAL_HOME)/.cache
 	docker run --rm --name py-amqp-test-$(COMMITID) -w /src \
 		-u $(BECOME_USER) \
 		-v $(shell pwd):/src \
-		-v $(HOME)/.local:/.local \
-		-v $(HOME)/.config/pip:/.pipconf  \
-		-v $(HOME)/.cache/pip:/.pipcache \
-		-e PIP_CONFIG_FILE=/.pipconf/$(PIP_CONFIG_FILE) \
+		-v $(LOCAL_HOME)/.local:/.local \
+		-v $(LOCAL_HOME)/.cache/pip:/.pipcache \
 		-e PIP_CACHE_DIR=/.pipcache \
 		-e AMQP_HOST=amqp-rabbit-test-$(COMMITID) \
 		--net net_$(COMMITID) \
