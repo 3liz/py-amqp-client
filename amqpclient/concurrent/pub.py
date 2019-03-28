@@ -45,7 +45,7 @@ class AsyncSubscriber(AsyncConnectionJob):
         if exchange_type is not None:
             await self._channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
 
-        m = await self._channel.queue_declare(exclusive=True)
+        m = await self._channel.queue_declare(queue="", exclusive=True)
         if not routing_keys:
             # No routing keys: support for 'fanout'
             await self._channel.queue_bind(exchange=exchange, queue=m.method.queue) 
@@ -59,7 +59,7 @@ class AsyncSubscriber(AsyncConnectionJob):
 
         self._message_handler = handler  
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
-        self._consumer_tag = self._channel.basic_consume(self.on_message, no_ack=True, 
+        self._consumer_tag = self._channel.basic_consume(on_message_callback=self.on_message, auto_ack=True, 
                                                          queue=m.method.queue)
 
     def on_consumer_cancelled(self):
@@ -71,7 +71,7 @@ class AsyncSubscriber(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
 
     def close(self):
         self._stop_consumming()

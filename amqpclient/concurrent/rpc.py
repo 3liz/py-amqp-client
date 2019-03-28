@@ -72,7 +72,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
         # Required for fair queuing
         self._channel.basic_qos(prefetch_count=1)
-        self._consumer_tag  = self._channel.basic_consume(self.on_message, queue=self._routing_key)
+        self._consumer_tag  = self._channel.basic_consume(on_message_callback=self.on_message, queue=self._routing_key)
 
     def on_consumer_cancelled(self):
         self.logger.warn("AMQP Consummer cancelled")
@@ -83,7 +83,7 @@ class AsyncRPCWorker(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
 
     def close(self):
         self._stop_consumming()
@@ -168,14 +168,14 @@ class AsyncRPCClient(AsyncConnectionJob):
         """
         self._channel = None
         self._channel = await connection.channel()
-        method_frame  = await self._channel.queue_declare(exclusive=True)
+        method_frame  = await self._channel.queue_declare(queue="", exclusive=True)
 
         # Since the channel is now open we declare exclusive reply queue and 
         # start a consummer on it 
         self._callback_queue = method_frame.method.queue
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
         self._channel.add_on_return_callback(self.on_return)
-        self._consumer_tag = self._channel.basic_consume(self.on_response, no_ack=True, 
+        self._consumer_tag = self._channel.basic_consume(on_message_callback=self.on_response, auto_ack=True, 
                                                          queue=self._callback_queue)
 
     def on_consumer_cancelled(self):
@@ -187,7 +187,7 @@ class AsyncRPCClient(AsyncConnectionJob):
         """
         if self._channel:
             self.logger.info('AMQP Cancelling RPC operation')
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag, nowait=True)
+            self._channel.basic_cancel(consumer_tag=self._consumer_tag)
 
     def close(self):
         self._stop_consumming()

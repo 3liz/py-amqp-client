@@ -166,7 +166,7 @@ class BasicWorker(BlockingConnection):
               
                 # This is required for fair queuing
                 channel.basic_qos(prefetch_count=1)
-                channel.basic_consume(self.on_message, queue=routing_key)
+                channel.basic_consume(on_message_callback=self.on_message, queue=routing_key)
                
                 self._connection = connection
                 self._channel    = channel
@@ -205,7 +205,7 @@ class BasicSubscriber(BlockingConnection):
                 if exchange_type is not None:
                     channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
             
-                result = channel.queue_declare(exclusive=True) 
+                result = channel.queue_declare(queue="", exclusive=True) 
                 queue_name = result.method.queue
 
                 if not routing_keys:
@@ -226,7 +226,7 @@ class BasicSubscriber(BlockingConnection):
                         self.logger.error("Uncaught exception in message_handler {}".format(e))
                         traceback.print_exc()
                     
-                channel.basic_consume(_on_message, queue=queue_name, no_ack=True)
+                channel.basic_consume(on_message_callback=_on_message, queue=queue_name, auto_ack=True)
                
                 self._connection = connection
                 self._channel    = channel

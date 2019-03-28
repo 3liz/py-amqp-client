@@ -56,7 +56,7 @@ def _run_worker( queue, host, response_delay):
         ch.basic_ack(delivery_tag = method.delivery_tag)
 
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(on_request, queue=queue)
+    channel.basic_consume(on_message_callback=on_request, queue=queue)
 
     # Install signal handler
     signal.signal(signal.SIGTERM, sig_handler)

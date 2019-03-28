@@ -7,6 +7,8 @@ pip3 install -U --user -r requirements.txt
 
 pip3 install --user -e ./ 
 
+pip3 list
+
 # Add /.local to path
 export PATH=$PATH:/.local/bin
 

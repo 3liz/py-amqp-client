@@ -25,12 +25,12 @@ def Future():
     return asyncio.get_event_loop().create_future()
 
 
-def _patch_method( obj, method_name, wrapper=lambda x:x ):
+def _patch_method( obj, method_name ):
     """ Monkey patch bound method """
     real_bound_method = getattr(obj,method_name)
     def patched_method( self, **kwargs ):
         future = Future()
-        real_bound_method(lambda rv: future.set_result(wrapper(rv)), **kwargs)
+        real_bound_method(callback=lambda rv: future.set_result(rv), **kwargs)
         return future
     setattr(obj,method_name,patched_method.__get__(obj))
                
@@ -49,7 +49,13 @@ def _patch_connection( conn ):
     """ Monkey patch connection to return future
         on async function
     """
-    return _patch_method(conn, 'channel', _patch_channel)
+    real_bound_method = getattr(conn,'channel')
+    def patched_method( self, **kwargs ):
+        future = Future()
+        real_bound_method(on_open_callback=lambda rv: future.set_result(_patch_channel(rv)),
+                          **kwargs)
+        return future
+    setattr(conn,'channel',patched_method.__get__(conn))
 
 
 class AsyncConnection(object):

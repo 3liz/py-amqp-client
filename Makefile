@@ -16,7 +16,7 @@ ifdef REGISTRY_URL
 	REGISTRY_PREFIX=$(REGISTRY_URL)/
 endif
 
-DOCKER_IMAGE=$(REGISTRY_PREFIX)python:3.6-alpine
+DOCKER_IMAGE=$(REGISTRY_PREFIX)python:3.7-alpine
 
 dirs:
 	mkdir -p $(DIST)
