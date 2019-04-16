@@ -1,0 +1,15 @@
+stages:
+- build
+
+build:
+  stage: build
+  script:
+    - make docker-test LOCAL_HOME=$RUNNER_HOME
+    - make dist deliver
+  environment:
+    name: snap
+  except:
+    - tags
+  tags:
+    - infrav3
+
