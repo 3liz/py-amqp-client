@@ -58,15 +58,15 @@ BECOME_USER:=$(shell id -u)
 LOCAL_HOME ?= $(shell pwd)
 
 docker-test-run:
-	mkdir -p $(LOCAL_HOME)/.local $(LOCAL_HOME)/.cache
+	mkdir -p $$(pwd)/.local $(LOCAL_HOME)/.cache
 	docker network create net_$(COMMITID)
 	docker run -d --rm --name amqp-rabbit-test-$(COMMITID) --net net_$(COMMITID)  $(REGISTRY_PREFIX)rabbitmq:3.6 
 	docker run --rm --name py-amqp-test-$(COMMITID) -w /src \
 		-u $(BECOME_USER) \
-		-v $(shell pwd):/src \
-		-v $(LOCAL_HOME)/.local:/.local \
-		-v $(LOCAL_HOME)/.cache/pip:/.pipcache \
-		-e PIP_CACHE_DIR=/.pipcache \
+		-v $$(pwd):/src \
+		-v $$(pwd)/.local:/.local \
+		-v $(LOCAL_HOME)/.cache:/.cache \
+		-e PIP_CACHE_DIR=/.cache \
 		-e AMQP_HOST=amqp-rabbit-test-$(COMMITID) \
 		--net net_$(COMMITID) \
 		$(DOCKER_IMAGE) ./run_tests.sh
