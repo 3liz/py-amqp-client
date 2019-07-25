@@ -28,7 +28,7 @@ class CloseConnection(Exception):
     pass
 
 
-class BlockingConnection(object):
+class BlockingConnection:
     """ Define a basic blocking connection with reconnect fallback 
     """       
     def __init__( self,  host, port=None, logger=None, 
@@ -80,7 +80,7 @@ class BlockingConnection(object):
         self._channel    = None
 
         cluster_size = len(self._cnxparams)
-        logging.error("AMQP connection error {}".format(error))
+        self._logger.error("AMQP connection error {}".format(error))
 
         # Attempt reconnection
         self._num_retry += 1
@@ -199,7 +199,6 @@ class BasicSubscriber(BlockingConnection):
         while not self.closing:
             try:
                 connection = self.connect() 
-                
                 channel = connection.channel()
 
                 if exchange_type is not None:
@@ -230,7 +229,7 @@ class BasicSubscriber(BlockingConnection):
                
                 self._connection = connection
                 self._channel    = channel
-                self._logger.info("[{}] Subscriber ready".format(os.getpid()))
+                self._logger.info("AMQP Subscriber ready")
                 self._channel.start_consuming()
             except AMQPConnectionError as e:
                 self.handle_connection_error(e)

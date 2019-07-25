@@ -186,8 +186,8 @@ class AsyncConnection(object):
             if future is not None:
                 future.set_result(conn)
 
-        def closed_handler(connection, reply_code, reply_text):
-            self.on_connection_close(reply_code, reply_text)
+        def closed_handler(_unused_connection, reason):
+            self.on_connection_close(reason)
 
         cnxparams  = self._cnxparams[self._cnxindex]
         connection = AsyncioConnection(cnxparams,
@@ -224,21 +224,19 @@ class AsyncConnection(object):
             self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
             self._ioloop.call_later(self._reconnect_latency, self._reconnect)
 
-    def on_connection_close(self, reply_code, reply_text):
+    def on_connection_close(self, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
 
-        :param pika.connection.Connection connection: The closed connection obj
-        :param int reply_code: The server provided reply_code if given
-        :param str reply_text: The server provided reply_text if given
+        :param str reason: The server provided reason if given
 
         """
         # XXX Attempt to reconnect only if connection has already  been established
         # This prevents race conditions with handle_connection_error
         if not self._closing and self._connection:
             self._connection = None
-            self._logger.warning("AMQP Connection closed unexpectedly:{}:{}".format(reply_code, reply_text))
+            self._logger.warning("AMQP Connection closed unexpectedly: %s",reason)
             self._reconnect()
 
 

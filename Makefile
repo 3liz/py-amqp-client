@@ -60,7 +60,7 @@ LOCAL_HOME ?= $(shell pwd)
 docker-test-run:
 	mkdir -p $$(pwd)/.local $(LOCAL_HOME)/.cache
 	docker network create net_$(COMMITID)
-	docker run -d --rm --name amqp-rabbit-test-$(COMMITID) --net net_$(COMMITID)  $(REGISTRY_PREFIX)rabbitmq:3.6 
+	docker run -d --rm --name amqp-rabbit-test-$(COMMITID) --net net_$(COMMITID)  $(REGISTRY_PREFIX)rabbitmq:3
 	docker run --rm --name py-amqp-test-$(COMMITID) -w /src \
 		-u $(BECOME_USER) \
 		-v $$(pwd):/src \

@@ -14,6 +14,7 @@ from __future__ import (absolute_import, division, print_function)
 
 from .basic import BasicSubscriber
 
+import logging
 import signal
 import sys
 import argparse 
@@ -50,9 +51,13 @@ def subscribe():
     if args.vhost is not None:
         kwargs['virtual_host'] = args.vhost
 
+    logger = logging.getLogger('subscriber')
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel('INFO')
+
     # Connect
     subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay, 
-                                 reconnect_latency=0, **kwargs);
+                                 reconnect_latency=0, logger=logger, **kwargs);
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
