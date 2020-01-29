@@ -6,7 +6,7 @@ def parse_requirements( filename ):
     with open( filename ) as fp:
         return list(filter(None, (r.strip('\n ').partition('#')[0] for r in fp.readlines())))
 
-if (sys.version_info > (3, 4)):
+if (sys.version_info >= (3, 5)):
     def load_source(name, path):
         from importlib.util import spec_from_file_location, module_from_spec
         spec = spec_from_file_location(name, path)
