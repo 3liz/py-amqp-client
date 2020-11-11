@@ -70,7 +70,10 @@ class AsyncSubscriber(AsyncConnectionJob):
            Basic.Cancel RPC command.
         """
         if self._channel:
-            self.logger.info('AMQP Cancelling RPC operation')
+            self.logger.info('AMQP Cancelling subscribe operation')
+            if self._consumer_tag is None:
+                self.logger.error("Consumer tag has unexpected value None !")
+                return
             self._channel.basic_cancel(consumer_tag=self._consumer_tag)
 
     def close(self):

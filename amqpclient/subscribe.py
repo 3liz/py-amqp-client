@@ -19,6 +19,7 @@ import signal
 import sys
 import argparse 
 
+import timeit
 
 def subscribe():
     """ Wait for a notification from amqp broker
@@ -30,7 +31,8 @@ def subscribe():
     parser.add_argument('-t','--topic', dest='routing_key', default='', help='Message topic')
     parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
     parser.add_argument('-x','--exchange', dest='exchange', metavar='name', help="Exchange name", required=True)
-    parser.add_argument('--exchange-type', choices=['topic','fanout','direct','none'],  default='topic', 
+    # Standard exchange type are 'topic','fanout','direct' or 'none' for using the default exchange] 
+    parser.add_argument('--exchange-type', default='none', 
                         help="Exchange type")
     parser.add_argument('-V','--virtual-host', dest='vhost', default=None)
     parser.add_argument('--credentials', metavar=('user', 'password'),  nargs=2)
@@ -43,7 +45,7 @@ def subscribe():
     signal.signal(signal.SIGTERM, terminate_handler)
     signal.signal(signal.SIGINT , terminate_handler)
 
-    kwargs = { 'port': 5672 }
+    kwargs = {}
 
     if args.credentials is not None:
         kwargs['credentials'] = pika.PlainCredentials(*args.credentials)
@@ -69,7 +71,7 @@ def subscribe():
         output = sys.stdout
 
     def handler( message ):
-        print( message.body, file=output)
+        print( message.body.decode(), file=output)
 
     try:
        subscriber.run(args.exchange, 
@@ -79,6 +81,10 @@ def subscribe():
     except (KeyboardInterrupt, SystemExit) as e:
         print(e, file=sys.stderr)
         subscriber.close() 
+
+
+if __name__ == "__main__":
+    subscribe()
 
 
 

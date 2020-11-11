@@ -38,11 +38,6 @@ setup(
     description=VER.__description__,
     url='',
     packages=find_packages(include=['amqpclient','amqpclient.*']),
-    entry_points={
-        'console_scripts': [
-                'amqpclient_subscribe = amqpclient.subscribe:subscribe',
-            ],
-    },
     classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.6",

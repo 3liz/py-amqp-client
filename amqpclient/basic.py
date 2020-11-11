@@ -31,7 +31,7 @@ class CloseConnection(Exception):
 class BlockingConnection:
     """ Define a basic blocking connection with reconnect fallback 
     """       
-    def __init__( self,  host, port=None, logger=None, 
+    def __init__( self,  host, port=5672, logger=None, 
                   reconnect_delay=5, 
                   reconnect_latency=0.200,
                    **connection_params ):
