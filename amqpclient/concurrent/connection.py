@@ -14,12 +14,7 @@ import pika
 import traceback
 import asyncio
 
-try:
-    from pika.adapters import AsyncioConnection
-except Exception:
-    # Support pika 0.13+
-    # see https://github.com/pika/pika/pull/1129
-    from pika.adapters.asyncio_connection import AsyncioConnection
+from pika.adapters.asyncio_connection import AsyncioConnection
 
 def Future():
     return asyncio.get_event_loop().create_future()
