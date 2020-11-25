@@ -16,7 +16,7 @@ import asyncio
 
 try:
     from pika.adapters import AsyncioConnection
-except:
+except Exception:
     # Support pika 0.13+
     # see https://github.com/pika/pika/pull/1129
     from pika.adapters.asyncio_connection import AsyncioConnection
@@ -132,7 +132,7 @@ class AsyncConnection(object):
                 await callback(self._connection, *args, **kwargs)
             except Exception as e:
                 traceback.print_exc()
-                self._logger.error("Callback failed with exception <{}>".format(exc))
+                self._logger.error("Callback failed with exception <{}>".format(e))
     
     def connect(self):
         """ Connects to RabbitMQ
@@ -166,13 +166,13 @@ class AsyncConnection(object):
 
         def error_handler(_unused, message):
             try:
-              self.handle_connection_error(message)
+                self.handle_connection_error(message)
             except Exception as e:
-              # Handle abort connection exception
-              if self._future:
-                  self._future.set_exception(e)
-              else:
-                  raise
+                # Handle abort connection exception
+                if self._future:
+                    self._future.set_exception(e)
+                else:
+                    raise
 
         def open_handler( conn ):
             self._logger.info("AMQP Connection established")
@@ -191,9 +191,9 @@ class AsyncConnection(object):
 
         cnxparams  = self._cnxparams[self._cnxindex]
         connection = AsyncioConnection(cnxparams,
-                    on_open_callback       = open_handler,
-                    on_open_error_callback = error_handler,
-                    on_close_callback      = closed_handler)
+                                       on_open_callback       = open_handler,
+                                       on_open_error_callback = error_handler,
+                                       on_close_callback      = closed_handler)
 
         _patch_connection(connection)
   

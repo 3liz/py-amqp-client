@@ -8,7 +8,7 @@
 
 """ Asyncio support (legacy supports)
 """
-from .concurrent import (AsyncConnection, 
+from .concurrent import (AsyncConnection, # noqa F401
                          AsyncConnectionJob,
                          AsyncRPCWorker,
                          AsyncRPCClient,

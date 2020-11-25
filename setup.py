@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages
 import os
 import sys
 
@@ -6,17 +6,7 @@ def parse_requirements( filename ):
     with open( filename ) as fp:
         return list(filter(None, (r.strip('\n ').partition('#')[0] for r in fp.readlines())))
 
-if (sys.version_info >= (3, 5)):
-    def load_source(name, path):
-        from importlib.util import spec_from_file_location, module_from_spec
-        spec = spec_from_file_location(name, path)
-        mod  = module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod
-else:
-    from imp import load_source
-
-VER = load_source("version", 'amqpclient/version.py')
+VER = "1.2.2"
 
 kwargs = {}
 
@@ -30,12 +20,12 @@ if os.path.exists(requirements):
 
 setup(
     name='py-amqp-client',
-    version=VER.__version__,
+    version=VER,
     author='3Liz',
     author_email='infos@3liz.org',
     maintainer='David Marteau',
     maintainer_email='dmarteau@3liz.org',
-    description=VER.__description__,
+    description="AMQP synchronous/asynchronous messaging",
     url='',
     packages=find_packages(include=['amqpclient','amqpclient.*']),
     classifiers=[

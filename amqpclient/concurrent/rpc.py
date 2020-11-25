@@ -16,8 +16,6 @@ Define rpc client/server library
 
 """
 import asyncio
-import sys
-import os
 import pika
 import uuid
 import traceback
@@ -133,6 +131,7 @@ class TimeoutError(Exception):
 class ReturnError(Exception):
     pass
 
+
 class ConnectionClosed(Exception):
     pass
 
@@ -207,7 +206,7 @@ class AsyncRPCClient(AsyncConnectionJob):
             future.set_exception( self.ConnectionClosed() )
 
     async def call(self, body, routing_key, timeout=5, content_type=None, content_encoding=None, 
-             headers=None):
+                   headers=None):
         """ Send message to rabbitMQ server
        
             :param routing key
@@ -230,17 +229,18 @@ class AsyncRPCClient(AsyncConnectionJob):
         self._callbacks[cid] = future
         # send message
         self._channel.basic_publish(exchange='',
-                                   routing_key=routing_key,
-                                   properties=pika.BasicProperties(
-                                         reply_to = self._callback_queue,
-                                         correlation_id = cid,
-                                         content_type = content_type,
-                                         content_encoding = content_encoding,
-                                         headers = headers,
-                                         expiration = self._expiration,
-                                         delivery_mode=1),
-                                   body=body,
-                                   mandatory=True)
+                                    routing_key=routing_key,
+                                    properties=pika.BasicProperties(
+                                        reply_to = self._callback_queue,
+                                        correlation_id = cid,
+                                        content_type = content_type,
+                                        content_encoding = content_encoding,
+                                        headers = headers,
+                                        expiration = self._expiration,
+                                        delivery_mode=1
+                                    ),
+                                    body=body,
+                                    mandatory=True)
 
         try:
             return await asyncio.wait_for(future, timeout)

@@ -29,7 +29,10 @@ manifest:
 
 AMQP_HOST:=localhost
 
-test:
+lint: 
+	@flake8 --ignore=E123,E2,E3,E5,W2,W3  amqpclient
+
+test: lint
 	@echo "INFO: tests requires a running amqp server"
 	$(PYTHON) -m amqpclient.tests.test_async_subscriber --host $(AMQP_HOST) --reconnect-delay=0
 	$(PYTHON) -m amqpclient.tests.test_async_rpc_worker --host $(AMQP_HOST) --reconnect-delay=0

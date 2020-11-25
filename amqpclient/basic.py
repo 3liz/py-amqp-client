@@ -34,7 +34,7 @@ class BlockingConnection:
     def __init__( self,  host, port=5672, logger=None, 
                   reconnect_delay=5, 
                   reconnect_latency=0.200,
-                   **connection_params ):
+                  **connection_params ):
         """ Create a new worker instance
 
             :param str host: Hostname or IP Address to connect to
@@ -123,16 +123,16 @@ Request = namedtuple('Request', ('body','props','reply'))
 class BasicWorker(BlockingConnection):
     """ Define a basic synchronous RPC  worker 
     """
-    def on_message(self, method, props, body):
+    def on_message(self, chan, method, props, body):
         """ Called when receivisg a message
 
-            The handler is assumed to be asynchronous and thus no return values
+            Keep same behavior as for the asynchronous case: no return values
             is expected: instead' a 'reply' function is passed to the handler
         """
         def reply( response, content_type=None, content_encoding=None, headers=None):
-                    """ Define a reply method that will be passed to the handler
-                    """
-                    chan.basic_publish(exchange='',
+            """ Define a reply method that will be passed to the handler
+            """
+            chan.basic_publish(exchange='',
                                routing_key=props.reply_to,
                                properties=pika.BasicProperties(
                                    correlation_id = props.correlation_id,
@@ -140,12 +140,13 @@ class BasicWorker(BlockingConnection):
                                    content_type = content_type,
                                    content_encoding = content_encoding,
                                    headers = headers,
-                                   delivery_mode=1),
+                                   delivery_mode=1
+                               ),
                                body=response)
-                    chan.basic_ack(delivery_tag = method.delivery_tag)
+            chan.basic_ack(delivery_tag = method.delivery_tag)
 
         try:
-            handler(Request(body,props,reply))
+            self._reply_handler(Request(body,props,reply))
         except Exception as e:
             logging.error("Uncaught exception in response_handler {}".format(e))
             # Force acknoweldgement
@@ -257,7 +258,7 @@ class BasicPublisher(BlockingConnection):
         self._exchange_type = exchange_type
 
     def publish(self, message, routing_key='', expiration=None, content_type=None, 
-                      content_encoding=None, headers=None):
+                content_encoding=None, headers=None):
         """ Send message to rabbitMQ server
         """
         if self._closing:

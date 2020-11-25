@@ -20,8 +20,9 @@ async def run_test( args  ):
     def message_handler( request ):
         logging.info("===> Received {} {}".format(request.key, request.body))
     
-    connection = AsyncConnection(host=args.host, reconnect_delay=args.reconnect_delay,
-                                                 reconnect_latency=args.latency)
+    connection = AsyncConnection(host=args.host, 
+                                 reconnect_delay=args.reconnect_delay,
+                                 reconnect_latency=args.latency)
 
     sub = AsyncSubscriber(connection=connection)
     pub = AsyncPublisher(connection=connection)

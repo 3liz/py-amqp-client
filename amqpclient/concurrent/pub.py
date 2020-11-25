@@ -11,9 +11,7 @@
     Supports for 'fanout', 'direct' and 'topic' exchanges
 
 """
-import os
 import pika
-import weakref
 import traceback
 import asyncio
 from collections import namedtuple
@@ -55,7 +53,7 @@ class AsyncSubscriber(AsyncConnectionJob):
             if isinstance(routing_keys, str):
                 routing_keys = [routing_keys]
             await asyncio.wait([self._channel.queue_bind(exchange=exchange, queue=m.method.queue,
-                                            routing_key=k) for k in routing_keys])
+                                routing_key=k) for k in routing_keys])
 
         self._message_handler = handler  
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
@@ -137,16 +135,16 @@ class AsyncPublisher(AsyncConnectionJob):
         super(AsyncPublisher, self).close()
 
     def publish(self, message, routing_key='', expiration=None, content_type=None, 
-                      content_encoding=None, headers=None):
+                content_encoding=None, headers=None):
         """ Send message to rabbitMQ server
         """
         if self._closing:
             raise Exception("Cannot publish after closing connection")
 
         if expiration is not None:
-           expiration = "{:d}".format(expiration)
+            expiration = "{:d}".format(expiration)
         else:
-           expiration = self._expiration
+            expiration = self._expiration
 
         self._channel.basic_publish(exchange=self._exchange, 
                                     routing_key=routing_key,

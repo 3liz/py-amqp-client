@@ -10,5 +10,3 @@ Define rpc client/server library
 
 """
 
-from .version import *
-

@@ -109,8 +109,8 @@ class RPCHandler(object):
         headers = dict(headers)
         headers['return-code'] = code
         request.reply( json.dumps(data),
-                content_type="application/json",
-                content_encoding="utf-8",
-                headers=headers)
+                       content_type="application/json",
+                       content_encoding="utf-8",
+                       headers=headers)
  
 

@@ -19,14 +19,13 @@ import signal
 import sys
 import argparse 
 
-import timeit
 
 def subscribe():
     """ Wait for a notification from amqp broker
     """
     parser = argparse.ArgumentParser(description='AMQP subscriber')
     parser.add_argument('-H','--host' , metavar='address', default='localhost',
-                         help="server address")
+                        help="server address")
     parser.add_argument('-o','--output', metavar='path', dest='output', default=None, help='Output message to file')
     parser.add_argument('-t','--topic', dest='routing_key', default='', help='Message topic')
     parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
@@ -48,6 +47,7 @@ def subscribe():
     kwargs = {}
 
     if args.credentials is not None:
+        import pika
         kwargs['credentials'] = pika.PlainCredentials(*args.credentials)
 
     if args.vhost is not None:
@@ -59,7 +59,7 @@ def subscribe():
 
     # Connect
     subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay, 
-                                 reconnect_latency=0, logger=logger, **kwargs);
+                                 reconnect_latency=0, logger=logger, **kwargs)
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
@@ -74,10 +74,10 @@ def subscribe():
         print( message.body.decode(), file=output)
 
     try:
-       subscriber.run(args.exchange, 
-                      handler = handler, 
-                      exchange_type=exchange_type,
-                      routing_keys=args.routing_key)
+        subscriber.run(args.exchange, 
+                       handler = handler, 
+                       exchange_type=exchange_type,
+                       routing_keys=args.routing_key)
     except (KeyboardInterrupt, SystemExit) as e:
         print(e, file=sys.stderr)
         subscriber.close() 

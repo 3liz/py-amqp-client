@@ -25,8 +25,9 @@ async def run_test( args  ):
         response = "cid={}".format(cid)
         request.reply(response)
 
-    connection = AsyncConnection(host=args.host, reconnect_delay=args.reconnect_delay,
-                                                 reconnect_latency=args.latency)
+    connection = AsyncConnection(host=args.host, 
+                                 reconnect_delay=args.reconnect_delay,
+                                 reconnect_latency=args.latency)
 
     client = AsyncRPCClient(connection=connection)
     worker = AsyncRPCWorker(connection=connection)

@@ -27,7 +27,7 @@ ROUTING_KEY='test_rpc'
 
    
 def sig_handler(sig, frame):
-   raise SystemExit();
+    raise SystemExit()
 
 
 def _run_worker( queue, host, response_delay):
@@ -76,8 +76,9 @@ def run_worker(queue = ROUTING_KEY, response_delay = 1, host='localhost'):
 
 
 async def run_client(args):
-    client = AsyncRPCClient(host=args.host, reconnect_delay=args.reconnect_delay,
-                                            reconnect_latency=args.latency)
+    client = AsyncRPCClient(host=args.host, 
+                            reconnect_delay=args.reconnect_delay,
+                            reconnect_latency=args.latency)
     client.set_msg_expiration(8000)
     await client.connect()
     responses = await asyncio.gather(*[client.call("=> request %s" % i,ROUTING_KEY,timeout=args.timeout) for i in range(args.requests)])  

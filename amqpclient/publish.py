@@ -18,7 +18,7 @@ def publish():
     """
     parser = argparse.ArgumentParser(description='AMQP publisher')
     parser.add_argument('-H','--host' , metavar='address', default='localhost',
-                         help="server address")
+                        help="server address")
     parser.add_argument('-i','--input', dest='input', metavar='path', help='Read message content from input file')
     parser.add_argument('-t','--topic', dest='routing_key', default='', help='Message topic')
     parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
@@ -53,23 +53,19 @@ def publish():
 
     # Connect
     publisher = BasicPublisher(args.host, reconnect_delay=args.reconnect_delay, 
-                               reconnect_latency=0, **kwargs);
+                               reconnect_latency=0, **kwargs)
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
         exchange_type = None
 
-    if args.headers is not None:
-        headers = dict(args.headers)
-    else:
-        headers = None
-
     publisher.initialize(args.exchange, args.exchange_type)
-    publisher.publish(message, routing_key      = args.routing_key,
-                               expiration       = args.expiration, 
-                               content_type     = args.content_type,
-                               content_encoding = args.content_encoding, 
-                               headers = args.headers)
+    publisher.publish(message, 
+                      routing_key      = args.routing_key,
+                      expiration       = args.expiration, 
+                      content_type     = args.content_type,
+                      content_encoding = args.content_encoding, 
+                      headers = args.headers)
     publisher.close()
 
 
