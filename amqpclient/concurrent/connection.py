@@ -53,7 +53,7 @@ def _patch_connection( conn ):
     setattr(conn,'channel',patched_method.__get__(conn))
 
 
-class AsyncConnection(object):
+class AsyncConnection:
     """ Asynchronous connection 
     """
 
@@ -79,16 +79,11 @@ class AsyncConnection(object):
         self._reconnect_latency = reconnect_latency
         self._cnxindex = 0 # Use round-robin strategy for reconnection
         self._cnxparams = [pika.ConnectionParameters(host=h, port=port, **connection_params) for h in host]
-        self._ioloop    =  asyncio.get_event_loop()
         self._callbacks = [] 
         self._future = None
 
     def add_timeout(self, delay, callback, *args, **kwargs):
-        return self._ioloop.call_later(delay, callback, *args, **kwargs)
-
-    @property
-    def io_loop(self):
-        return self._ioloop
+        return asyncio.get_event_loop().call_later(delay, callback, *args, **kwargs)
 
     @property
     def logger(self):
@@ -211,13 +206,13 @@ class AsyncConnection(object):
             # All nodes all been tried
             if self._reconnect_delay > 0:
                 self._logger.error("AMQP no nodes responding, waiting {} s before new attempts".format(self._reconnect_delay))
-                self._ioloop.call_later(self._reconnect_delay, self._reconnect)
+                self.add_timeout(self._reconnect_delay, self._reconnect)
             else:
                 self._logger.error("AMQP no nodes responding...")
                 raise RuntimeError("Aborting AMQP connection")
         else:
             self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
-            self._ioloop.call_later(self._reconnect_latency, self._reconnect)
+            self.add_timeout(self._reconnect_latency, self._reconnect)
 
     def on_connection_close(self, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -235,7 +230,7 @@ class AsyncConnection(object):
             self._reconnect()
 
 
-class AsyncConnectionJob(object): 
+class AsyncConnectionJob: 
     """ 
     """
     def __init__(self,  *args, **kwargs ):
@@ -253,10 +248,6 @@ class AsyncConnectionJob(object):
         self._connection = connection
         self._closing = False
         self._logger  = connection._logger
-
-    @property
-    def io_loop(self):
-        return self._connection.io_loop
 
     @property
     def connection(self):

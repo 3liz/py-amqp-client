@@ -56,7 +56,6 @@ class AsyncRPCWorker(AsyncConnectionJob):
             will invoke when a message is fully received.
         
             :param handler: handler function
-                Will be called as (body, cid, reply_fun)
                 IMPORTANT: handler must be *reentrant*            
         """
 
@@ -114,11 +113,8 @@ class AsyncRPCWorker(AsyncConnectionJob):
         try:
             self._reply_handler(Request(body,props,reply))
         except Exception as e:
-            self.logger.error("Uncaught exception in response_handler {}".format(e))
-            # Force acknoweldgement
-            chan.basic_ack(delivery_tag = method.delivery_tag)
-            traceback.print_exc()      
-
+            self.logger.error(traceback.format_exc())      
+            self.logger.error("Uncaught exception in reply handler {}".format(e))
 #
 # Async RPC client
 #
@@ -221,7 +217,7 @@ class AsyncRPCClient(AsyncConnectionJob):
         
         assert self._channel, "AMQP no connection !"
 
-        future = self.io_loop.create_future()
+        future = asyncio.get_event_loop().create_future()
         
         # Generate a cid
         cid = str(uuid.uuid4())

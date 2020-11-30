@@ -47,19 +47,24 @@ def parse_message(body):
         raise MSGException(400,"Invalid message",exc=e)
 
 
-class RPCHandler(object):
+class RPCHandler:
     """ Basic commands handler
     """
     def __init__(self, logger=None):
         self._registry = {}
         self.logger = logger or logging.getLogger()
 
+    def register_command(self, name, fun):
+        """ Register a command 
+        """
+        self._registry[name] = fun
+
     def command(self,  name):
         """ Decorator for registering function as a
             command
         """
         def wrapper( fun ):
-            self._registry[name] = fun
+            self.register_command( name, fun )
             return fun
 
         return wrapper
@@ -85,6 +90,7 @@ class RPCHandler(object):
         self.reply_json(request, data=error_msg,  code=code)
         return code, msg, exc
 
+
     def __call__( self, request ):
         """ Handle command
 
@@ -100,7 +106,7 @@ class RPCHandler(object):
 
         except Exception as e:
             if not isinstance(e, MSGException):
-                traceback.print_exc()
+                self.logger.error(traceback.format_exc())
             self.handle_error(request, e)
 
     def reply_json(self, request, data, code=200,  headers={}):
@@ -113,4 +119,3 @@ class RPCHandler(object):
                        content_encoding="utf-8",
                        headers=headers)
  
-

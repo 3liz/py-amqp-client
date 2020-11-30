@@ -53,7 +53,7 @@ dist: dirs manifest
 	$(PYTHON) setup.py sdist --dist-dir=$(DIST)
 
 clean:
-	rm -rf $(BUILDDIR)
+	rm -rf $(BUILDDIR) *.egg-info
 
 
 BECOME_USER:=$(shell id -u)
