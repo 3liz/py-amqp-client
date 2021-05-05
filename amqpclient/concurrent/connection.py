@@ -90,6 +90,10 @@ class AsyncConnection:
         return self._logger
 
     @property
+    def connected(self):
+        return self._connection and self._connection.is_open
+
+    @property
     def closing(self):
         return self._closing
 
@@ -252,6 +256,10 @@ class AsyncConnectionJob:
     @property
     def connection(self):
         return self._connection
+
+    @property
+    def connected(self):
+        return self._connection.connected
 
     @property
     def logger(self):

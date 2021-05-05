@@ -141,6 +141,10 @@ class AsyncPublisher(AsyncConnectionJob):
         if self._closing:
             raise Exception("Cannot publish after closing connection")
 
+        if not self.connected:
+            self.logger.error("Publisher no connected")
+            return
+
         if expiration is not None:
             expiration = "{:d}".format(expiration)
         else:

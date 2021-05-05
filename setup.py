@@ -6,7 +6,7 @@ def parse_requirements( filename ):
     with open( filename ) as fp:
         return list(filter(None, (r.strip('\n ').partition('#')[0] for r in fp.readlines())))
 
-VER = "1.2.2"
+VER = "1.2.3"
 
 kwargs = {}
 
