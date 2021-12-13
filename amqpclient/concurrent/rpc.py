@@ -217,7 +217,7 @@ class AsyncRPCClient(AsyncConnectionJob):
         
         assert self._channel, "AMQP no connection !"
 
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         
         # Generate a cid
         cid = str(uuid.uuid4())

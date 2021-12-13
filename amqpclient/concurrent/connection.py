@@ -17,7 +17,7 @@ import asyncio
 from pika.adapters.asyncio_connection import AsyncioConnection
 
 def Future():
-    return asyncio.get_event_loop().create_future()
+    return asyncio.get_running_loop().create_future()
 
 
 def _patch_method( obj, method_name ):
@@ -83,7 +83,7 @@ class AsyncConnection:
         self._future = None
 
     def add_timeout(self, delay, callback, *args, **kwargs):
-        return asyncio.get_event_loop().call_later(delay, callback, *args, **kwargs)
+        return asyncio.get_running_loop().call_later(delay, callback, *args, **kwargs)
 
     @property
     def logger(self):
