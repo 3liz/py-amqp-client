@@ -1,3 +1,2 @@
 include setup.py MANIFEST.in README.md factory.manifest
-include requirements.txt
 

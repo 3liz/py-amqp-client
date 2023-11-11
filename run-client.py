@@ -2,7 +2,7 @@
 import asyncio
 import logging
 
-from amqpclient.concurrent import AsyncSubscriber, AsyncConnection
+from amqpclient.aio import AsyncSubscriber, AsyncConnection
 
 EXCHANGE = "test_sub_reconnect"
 

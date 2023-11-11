@@ -11,7 +11,7 @@
 import asyncio
 import logging
 
-from ..concurrent import AsyncPublisher, AsyncSubscriber, AsyncConnection
+from ..aio import AsyncPublisher, AsyncSubscriber, AsyncConnection
 
 EXCHANGE = "test_pubsub"
 

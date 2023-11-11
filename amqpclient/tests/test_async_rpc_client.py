@@ -20,7 +20,7 @@ import signal
 import asyncio
 from time import sleep
 
-from ..concurrent import AsyncRPCClient
+from ..aio import AsyncRPCClient
 
 
 ROUTING_KEY='test_rpc'

@@ -39,6 +39,6 @@ await channel.exchange_declare(exchange='my.exchange', exchange_type='fanout')
 
 ### Requirements
 
-- Python 3.5+
+- Python 3.10+
 
 

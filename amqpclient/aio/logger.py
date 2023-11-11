@@ -10,13 +10,14 @@
 Define a logger based on amqp
 """
 
+import asyncio
+import logging
 import os
 import sys
-import logging
-import asyncio
 import traceback
 
 from .pub import AsyncPublisher
+
 
 class Handler(logging.Handler):
     """ A logging handler that push notifications to RabbitMQ

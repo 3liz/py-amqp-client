@@ -9,12 +9,13 @@
 """ Handle asynchronous connections
 """
 
-import logging
-import pika
-import traceback
 import asyncio
+import logging
+import traceback
 
+import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
+
 
 def Future():
     return asyncio.get_running_loop().create_future()

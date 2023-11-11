@@ -11,10 +11,12 @@
     Supports for 'fanout', 'direct' and 'topic' exchanges
 
 """
-import pika
-import traceback
 import asyncio
+import traceback
 from collections import namedtuple
+
+import pika
+
 from .connection import AsyncConnectionJob
 
 #

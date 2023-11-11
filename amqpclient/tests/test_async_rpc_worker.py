@@ -12,7 +12,7 @@
 
 import asyncio
 import logging
-from ..concurrent import  AsyncRPCClient, AsyncRPCWorker, AsyncConnection
+from ..aio import  AsyncRPCClient, AsyncRPCWorker, AsyncConnection
 
 ROUTE_KEY = "test_rpc"
 

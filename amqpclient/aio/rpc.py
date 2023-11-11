@@ -16,13 +16,13 @@ Define rpc client/server library
 
 """
 import asyncio
-import pika
-import uuid
 import traceback
+import uuid
 from collections import namedtuple
 
-from .connection import AsyncConnectionJob
+import pika
 
+from .connection import AsyncConnectionJob
 
 #
 # Async RPC worker
