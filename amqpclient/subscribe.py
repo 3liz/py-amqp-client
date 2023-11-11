@@ -8,10 +8,6 @@
 
 """ Implement pub/sub notifier as cli command
 """
-
-# XXX Keep python2 compatibility
-from __future__ import absolute_import, division, print_function
-
 import argparse
 import logging
 import signal
@@ -58,8 +54,12 @@ def subscribe():
     logger.setLevel('INFO')
 
     # Connect
-    subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay,
-                                 reconnect_latency=0, logger=logger, **kwargs)
+    subscriber = BasicSubscriber(
+        args.host,
+        reconnect_delay=args.reconnect_delay,
+        logger=logger,
+        **kwargs,
+    )
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
@@ -74,10 +74,12 @@ def subscribe():
         print(message.body.decode(), file=output)
 
     try:
-        subscriber.run(args.exchange,
-                       handler=handler,
-                       exchange_type=exchange_type,
-                       routing_keys=args.routing_key)
+        subscriber.run(
+            args.exchange,
+            handler=handler,
+            exchange_type=exchange_type,
+            routing_keys=args.routing_key,
+        )
     except (KeyboardInterrupt, SystemExit) as e:
         print(e, file=sys.stderr)
         subscriber.close()

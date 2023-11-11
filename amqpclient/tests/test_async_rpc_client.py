@@ -9,14 +9,12 @@
 """
     Tests async client
 """
-
-from __future__ import absolute_import, division, print_function
-
 import asyncio
 import logging
 import multiprocessing as mp
 import os
 import signal
+
 from time import sleep
 
 import pika
@@ -48,10 +46,12 @@ def _run_worker(queue, host, response_delay):
         response = "pid={} delay={}".format(pid, response_delay)
 
         sleep(response_delay)
-        ch.basic_publish(exchange='',
-                         routing_key=props.reply_to,
-                         properties=pika.BasicProperties(correlation_id=props.correlation_id),
-                         body=str(response))
+        ch.basic_publish(
+            exchange='',
+            routing_key=props.reply_to,
+            properties=pika.BasicProperties(correlation_id=props.correlation_id),
+            body=str(response),
+        )
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     channel.basic_qos(prefetch_count=1)
@@ -75,9 +75,10 @@ def run_worker(queue=ROUTING_KEY, response_delay=1, host='localhost'):
 
 
 async def run_client(args):
-    client = AsyncRPCClient(host=args.host,
-                            reconnect_delay=args.reconnect_delay,
-                            reconnect_latency=args.latency)
+    client = AsyncRPCClient(
+        host=args.host,
+        reconnect_delay=args.reconnect_delay,
+    )
     client.set_msg_expiration(8000)
     await client.connect()
     responses = await asyncio.gather(*[client.call(
@@ -100,7 +101,6 @@ if __name__ == "__main__":
     parser.add_argument('--delay', nargs='?', type=int,  default=1, help="worker delay")
     parser.add_argument('--logging', choices=['debug', 'info', 'warning',
                         'error'], default='info', help="set log level")
-    parser.add_argument('--latency', type=float, default=0.200, help="set reconnection latency")
     parser.add_argument('--reconnect-delay',  type=float, default=5, help="Reconnect delay")
 
     args = parser.parse_args(sys.argv[1:])

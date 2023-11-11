@@ -13,9 +13,12 @@
 """
 import asyncio
 import traceback
-from collections import namedtuple
+
+from dataclasses import dataclass
 
 import pika
+
+from typing_extensions import Any
 
 from .connection import AsyncConnectionJob
 
@@ -23,7 +26,12 @@ from .connection import AsyncConnectionJob
 # Async Subscriber
 #
 
-Request = namedtuple("Request", ('key', 'body', 'props'))
+
+@dataclass(frozen=True)
+class Request:
+    key: str
+    body: Any
+    props: pika.BasicProperties
 
 
 class AsyncSubscriber(AsyncConnectionJob):
@@ -98,7 +106,6 @@ class AsyncSubscriber(AsyncConnectionJob):
 # Async Publisher client
 #
 
-
 class TimeoutError(Exception):
     pass
 
@@ -154,11 +161,13 @@ class AsyncPublisher(AsyncConnectionJob):
         else:
             expiration = self._expiration
 
-        self._channel.basic_publish(exchange=self._exchange,
-                                    routing_key=routing_key,
-                                    properties=pika.BasicProperties(
-                                        expiration=expiration,
-                                        content_type=content_type,
-                                        content_encoding=content_encoding,
-                                        headers=headers),
-                                    body=message)
+        self._channel.basic_publish(
+            exchange=self._exchange,
+            routing_key=routing_key,
+            properties=pika.BasicProperties(
+                expiration=expiration,
+                content_type=content_type,
+                content_encoding=content_encoding,
+                headers=headers),
+            body=message,
+        )

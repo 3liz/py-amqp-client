@@ -1,5 +1,5 @@
 #
-# Copyright 2018 3liz
+# Copyright 2018-2023 3liz
 # Author David Marteau
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -18,14 +18,22 @@
 import logging
 import os
 import traceback
-from collections import namedtuple
+
+from contextlib import contextmanager
+from dataclasses import dataclass
 from time import sleep
 
 import pika
+
 from pika.exceptions import AMQPConnectionError
+from typing_extensions import Any, Callable, List, Self
 
 
 class CloseConnection(Exception):
+    pass
+
+
+class ConnectionAttemptExhausted(Exception):
     pass
 
 
@@ -33,22 +41,31 @@ class BlockingConnection:
     """ Define a basic blocking connection with reconnect fallback
     """
 
-    def __init__(self,  host, port=5672, logger=None,
-                 reconnect_delay=5,
-                 **connection_params):
+    def __init__(
+        self,
+        host: str | List[str],
+        port: int = 5672,
+        reconnect_always: bool = True,
+        reconnect_delay: int = 5,
+        logger: logging.Logger = None,
+        **connection_params,
+    ):
         """ Create a new worker instance
 
             :param str host: Hostname or IP Address to connect to
             :param int port: TCP port to connect to
             :param float reconnect_delay: delay between reconnection attempts (in seconds)
         """
-        self._logger = logger or logging.getLogger()
+
+        if reconnect_delay <= 0:
+            raise ValueError("reconnect_delay must be positive integer")
+        self._reconnect_always = reconnect_always
         self._reconnect_delay = reconnect_delay
         self._closing = False
-        self._num_retry = 0
         self._cnxindex = 0
         self._connection = None
-        self._channel = None
+
+        self.logger = logger or logging.getLogger()
 
         if not isinstance(host, (tuple, list)):
             host = [host]
@@ -59,73 +76,87 @@ class BlockingConnection:
             **connection_params
         ) for h in host]
 
-    @property
-    def logger(self):
-        return self._logger
-
     def close(self):
         self._closing = True
-        if self._channel is not None:
-            self._channel.close()
-            self._channel = None
         if self._connection is not None:
             self._connection.close()
             self._connection = None
-
-    @property
-    def closing(self):
-        return self._closing
 
     def handle_connection_error(self, error):
         """ Handle connection strategy on connection error
         """
         self._connection = None
-        self._channel = None
 
         cluster_size = len(self._cnxparams)
-        self._logger.error("AMQP connection error {}".format(error))
+        self.logger.error("AMQP connection error {}".format(error))
 
         # Attempt reconnection
-        self._num_retry += 1
-        # Create a new connection on the next node
         # Set next connection backend as our failover
-        self._cnxindex = (self._cnxindex + 1) % cluster_size
-        if self._num_retry >= cluster_size:
-            # All nodes all been tried
-            self._num_retry = 0
-            if self._reconnect_delay > 0:
-                self._logger.error(
-                    "AMQP no nodes responding, waiting {} s before new attempts".format(self._reconnect_delay))
-                sleep(self._reconnect_delay)
+        cnxindex = self._cnxindex + 1
+        if cnxindex >= cluster_size:
+            # All nodes have been tried
+            # If we do not mean to reconnect, leave the field
+            if not self._reconnect_always:
+                raise ConnectionAttemptExhausted()
             else:
-                self._logger.error("AMQP no nodes responding...")
-                raise RuntimeError("Aborting AMQP connection")
+                self._cnxindex = 0
+                self.logger.error(
+                    "AMQP: no nodes responding, waiting %s s before new attempts",
+                    self._reconnect_delay,
+                )
+                sleep(self._reconnect_delay)
         else:
-            self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
-            sleep(self._reconnect_latency)
+            self._cnxindex = cnxindex % cluster_size
 
-    def connect(self):
-        """ Reconnect
-
+    def connect(self) -> Self:
+        """ Open connection
             Call connect() with the new connection as param.
         """
+        if not self._connection:
+            self._connection = pika.BlockingConnection(self._cnxparams[self._cnxindex])
+        return self
+
+    def new_channel(self) -> pika.channel.Channel:
+        """ Return a new channel for this connection
+
+            Open the connection if neeeded
+        """
+        self.connect()
+        return self._connection.channel()
+
+    @property
+    def closing(self) -> bool:
+        return self._closing
+
+    @contextmanager
+    def channel(self) -> pika.channel.Channel:
+        """ Managed channel
+        """
         if self._closing:
-            raise Exception("Cannot connect after closing")
-        connection = pika.BlockingConnection(self._cnxparams[self._cnxindex])
-        return connection
+            raise RuntimeError("AMQP: Cannot create channel after closing")
+
+        channel = self.new_channel()
+        try:
+            yield channel
+        finally:
+            if not channel.is_closed:
+                channel.close()
 
 #
 # Define request object
 #
 
 
-Request = namedtuple('Request', ('body', 'props', 'reply'))
+@dataclass(frozen=True)
+class Request:
+    body: Any
+    props: pika.BasicProperties
+    reply: Callable
+
 
 #
 # Basic blocking RPC worker
 #
-
-
 class BasicWorker(BlockingConnection):
     """ Define a basic synchronous RPC  worker
     """
@@ -139,57 +170,61 @@ class BasicWorker(BlockingConnection):
         def reply(response, content_type=None, content_encoding=None, headers=None):
             """ Define a reply method that will be passed to the handler
             """
-            chan.basic_publish(exchange='',
-                               routing_key=props.reply_to,
-                               properties=pika.BasicProperties(
-                                   correlation_id=props.correlation_id,
-                                   expiration=props.expiration,
-                                   content_type=content_type,
-                                   content_encoding=content_encoding,
-                                   headers=headers,
-                                   delivery_mode=1
-                               ),
-                               body=response)
-            chan.basic_ack(delivery_tag=method.delivery_tag)
-
+            chan.basic_publish(
+                exchange='',
+                routing_key=props.reply_to,
+                properties=pika.BasicProperties(
+                    correlation_id=props.correlation_id,
+                    expiration=props.expiration,
+                    content_type=content_type,
+                    content_encoding=content_encoding,
+                    headers=headers,
+                    delivery_mode=1
+                ),
+                body=response,
+            )
         try:
             self._reply_handler(Request(body, props, reply))
-        except Exception as e:
-            logging.error("Uncaught exception in response_handler {}".format(e))
+        except Exception as err:
+            logging.error(
+                "Uncaught exception in response_handler %s\n%s",
+                str(err),
+                traceback.format_exc(),
+            )
+        finally:
             # Force acknoweldgement
             chan.basic_ack(delivery_tag=method.delivery_tag)
-            traceback.print_exc()
 
-    def run(self, routing_key, request_handler):
+    def run(self, routing_key: str, request_handler: Callable):
         """ Run blocking rpc worker
         """
         self._handler = request_handler
         while not self.closing:
             try:
-                connection = self.connect()
-
-                channel = connection.channel()
-                channel.queue_declare(queue=routing_key)
-
-                # This is required for fair queuing
-                channel.basic_qos(prefetch_count=1)
-                channel.basic_consume(on_message_callback=self.on_message, queue=routing_key)
-
-                self._connection = connection
-                self._channel = channel
-                self._logger.info("[{}] RPC worker ready".format(os.getpid()))
-                self._channel.start_consuming()
-            except AMQPConnectionError as e:
-                self.handle_connection_error(e)
+                with self.channel() as channel:
+                    channel.queue_declare(queue=routing_key)
+                    # This is required for fair queuing
+                    channel.basic_qos(prefetch_count=1)
+                    channel.basic_consume(on_message_callback=self.on_message, queue=routing_key)
+                    self.logger.info("[%s] RPC worker ready", os.getpid())
+                    channel.start_consuming()
+            except AMQPConnectionError as err:
+                # Retry connection
+                self.handle_connection_error(err)
             except CloseConnection:
                 self.close()
+
 
 #
 # Blocking subscriber
 #
 
 
-Message = namedtuple("Message", ('key', 'body', 'props'))
+@dataclass(frozen=True)
+class Message:
+    key: str
+    body: Any
+    props: pika.BasicProperties
 
 
 class BasicSubscriber(BlockingConnection):
@@ -197,7 +232,7 @@ class BasicSubscriber(BlockingConnection):
 
         Creating a publisher:
 
-            channel = connection.channel()
+            channel = connection.new_channel()
             channel.exchange_declare(exchange=topic, exchange_type='fanout')
             self._channel = channel
 
@@ -208,50 +243,51 @@ class BasicSubscriber(BlockingConnection):
     def run(self, exchange, handler, exchange_type='fanout', routing_keys=[]):
         while not self.closing:
             try:
-                connection = self.connect()
-                channel = connection.channel()
+                with self.channel() as channel:
+                    if exchange_type is not None:
+                        channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
 
-                if exchange_type is not None:
-                    channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
+                    result = channel.queue_declare(queue="", exclusive=True)
+                    queue_name = result.method.queue
 
-                result = channel.queue_declare(queue="", exclusive=True)
-                queue_name = result.method.queue
+                    if not routing_keys:
+                        # No routing keys: support for 'fanout'
+                        channel.queue_bind(exchange=exchange, queue=queue_name)
+                    else:
+                        # Bind onto multiple routing_keys: supports for 'direct' and
+                        # 'topic' exchange type
+                        if isinstance(routing_keys, str):
+                            routing_keys = [routing_keys]
+                        for key in routing_keys:
+                            channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=key)
 
-                if not routing_keys:
-                    # No routing keys: support for 'fanout'
-                    channel.queue_bind(exchange=exchange, queue=queue_name)
-                else:
-                    # Bind onto multiple routing_keys: supports for 'direct' and
-                    # 'topic' exchange type
-                    if isinstance(routing_keys, str):
-                        routing_keys = [routing_keys]
-                    for key in routing_keys:
-                        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=key)
+                    def _on_message(chan, method, props, body):
+                        try:
+                            handler(Message(method.routing_key, body, props))
+                        except Exception as err:
+                            self.logger.error(
+                                "Uncaught exception in message_handler %s\n%s",
+                                str(err),
+                                traceback.format_exc(),
+                            )
 
-                def _on_message(chan, method, props, body):
-                    try:
-                        handler(Message(method.routing_key, body, props))
-                    except Exception as e:
-                        self.logger.error("Uncaught exception in message_handler {}".format(e))
-                        traceback.print_exc()
+                    channel.basic_consume(on_message_callback=_on_message, queue=queue_name, auto_ack=True)
 
-                channel.basic_consume(on_message_callback=_on_message, queue=queue_name, auto_ack=True)
-
-                self._connection = connection
-                self._channel = channel
-                self._logger.info("AMQP Subscriber ready")
-                self._channel.start_consuming()
-            except AMQPConnectionError as e:
-                self.handle_connection_error(e)
+                    self.logger.info("AMQP Subscriber ready")
+                    channel.start_consuming()
+            except AMQPConnectionError as err:
+                # Retry connection
+                self.handle_connection_error(err)
             except CloseConnection:
                 self.close()
 
+
 #
-# Publisher
+# Blocking publisher
 #
 
 
-class BasicPublisher(BlockingConnection):
+class BasicPublisher:
     """ Define a basic synchronous publisher
     """
 
@@ -260,7 +296,25 @@ class BasicPublisher(BlockingConnection):
         """
         self._exchange = None
         self._exchange_type = None
-        super(BasicPublisher, self).__init__(*args, **kwargs)
+        self._channel = None
+        connection = kwargs.get('connection')
+        if not connection:
+            connection = BlockingConnection(*args, **kwargs)
+            self._owned_connection = True
+        else:
+            self._owned_connection = False
+        self._connection = connection
+
+    def close(self):
+        if self._channel:
+            self._channel.close()
+            self._channel = None
+        if self._owned_connection:
+            self._connection.close()
+
+    @property
+    def connection(self) -> BlockingConnection:
+        return self._connection
 
     def initialize(self, exchange, exchange_type='fanout'):
         """
@@ -272,7 +326,7 @@ class BasicPublisher(BlockingConnection):
                 content_encoding=None, headers=None):
         """ Send message to rabbitMQ server
         """
-        if self._closing:
+        if self._connection.closing:
             raise Exception("Cannot publish after closing connection")
 
         if self._exchange is None:
@@ -285,23 +339,22 @@ class BasicPublisher(BlockingConnection):
 
         while not done:
             try:
-                if self._connection is None:
-                    connection = self.connect()
-                    channel = connection.channel()
+                if self._channel is None:
+                    self._channel = self._connection.new_channel()
                     if self._exchange_type != 'none':
-                        channel.exchange_declare(exchange=self._exchange, exchange_type=self._exchange_type)
+                        self._channel.exchange_declare(exchange=self._exchange, exchange_type=self._exchange_type)
 
-                    self._channel = channel
-                    self._connection = connection
-
-                self._channel.basic_publish(exchange=self._exchange,
-                                            routing_key=routing_key,
-                                            properties=pika.BasicProperties(
-                                                expiration=expiration,
-                                                content_type=content_type,
-                                                content_encoding=content_encoding,
-                                                headers=headers),
-                                            body=message)
+                self._channel.basic_publish(
+                    exchange=self._exchange,
+                    routing_key=routing_key,
+                    properties=pika.BasicProperties(
+                        expiration=expiration,
+                        content_type=content_type,
+                        content_encoding=content_encoding,
+                        headers=headers),
+                    body=message
+                )
                 done = True
             except AMQPConnectionError as e:
-                self.handle_connection_error(e)
+                self._channel = None
+                self._connection.handle_connection_error(e)

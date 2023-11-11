@@ -14,15 +14,32 @@ import logging
 import traceback
 
 import pika
+
 from pika.adapters.asyncio_connection import AsyncioConnection
+from typing_extensions import Awaitable, Callable, List
+
+
+class ConnectionAttemptExhausted(Exception):
+    pass
+
+
+def add_timeout(delay, callback, *args, **kwargs):
+    return asyncio.get_running_loop().call_later(delay, callback, *args, **kwargs)
 
 
 def Future():
+    """ Shortcut to Future creation
+    """
     return asyncio.get_running_loop().create_future()
 
 
 def _patch_method(obj, method_name):
-    """ Monkey patch bound method """
+    """ Monkey patch bound method
+
+        Patch method that use callback so that it returns a future
+        The future will be resolved when the callback is
+        called.
+    """
     real_bound_method = getattr(obj, method_name)
 
     def patched_method(self, **kwargs):
@@ -34,7 +51,7 @@ def _patch_method(obj, method_name):
 
 def _patch_channel(channel):
     """ Monkey patch async channel method so that channel
-        return future
+        callback methods returns futures
     """
     _patch_method(channel, 'queue_declare')
     _patch_method(channel, 'exchange_declare')
@@ -44,7 +61,7 @@ def _patch_channel(channel):
 
 def _patch_connection(conn):
     """ Monkey patch connection to return future
-        on async function
+        on channel function callback create method.
     """
     real_bound_method = getattr(conn, 'channel')
 
@@ -60,33 +77,37 @@ class AsyncConnection:
     """ Asynchronous connection
     """
 
-    def __init__(self, host, port=5672, logger=None,
-                 reconnect_delay=5, reconnect_latency=0.200,
-                 **connection_params):
+    def __init__(
+        self,
+        host: str | List[str],
+        port: int = 5672,
+        logger: logging.Logger = None,
+        reconnect_always: bool = True,
+        reconnect_delay: int = 5,
+        **connection_params,
+    ):
         """ Create a new instance of worker publisher
 
             :param str host: Hostname or IP Address to connect to
             :param int port: TCP port to connect to
             :param float reconnect_delay: reconnection delay when trying to reconnect all nodes (in seconds)
-            :param float reconnect_latency: latency between reconnection attempts (in seconds)
-            :param function on_client_ready: callback that will be called on connection ready. Note that
-               caller has to test the 'connected' status to check for failure
+            :param float reconnect_always: always attempts reconnection)
         """
+        if reconnect_delay <= 0:
+            raise ValueError("reconnect_delay must be positive integer")
+
         if isinstance(host, str):
             host = [host]
 
         self._connection = None
         self._closing = False
         self._logger = logger or logging.getLogger()
+        self._reconnect_always = reconnect_always
         self._reconnect_delay = reconnect_delay
-        self._reconnect_latency = reconnect_latency
         self._cnxindex = 0  # Use round-robin strategy for reconnection
         self._cnxparams = [pika.ConnectionParameters(host=h, port=port, **connection_params) for h in host]
         self._callbacks = []
-        self._future = None
-
-    def add_timeout(self, delay, callback, *args, **kwargs):
-        return asyncio.get_running_loop().call_later(delay, callback, *args, **kwargs)
+        self._connect_future = None
 
     @property
     def logger(self):
@@ -107,7 +128,7 @@ class AsyncConnection:
         self._callbacks = []
         self._closing = True
 
-    def add_reconnect_callback(self, callback, *args, **kwargs):
+    def add_reconnect_callback(self, callback: Callable[[], Awaitable], *args, **kwargs):
         """ Add a callback to run when reconnecting.
 
             If the connection has to be reinitialized,
@@ -115,7 +136,7 @@ class AsyncConnection:
         """
         self._callbacks.append((callback, args, kwargs))
 
-    def remove_callback(self, callback):
+    def remove_callback(self, callback: Callable):
         self._callbacks = [c for c in self._callbacks if c != callback]
 
     async def _execute_callbacks(self):
@@ -127,11 +148,14 @@ class AsyncConnection:
         for callback, args, kwargs in self._callbacks:
             try:
                 await callback(self._connection, *args, **kwargs)
-            except Exception as e:
-                traceback.print_exc()
-                self._logger.error("Callback failed with exception <{}>".format(e))
+            except Exception as err:
+                self._logger.error(
+                    "Callback failed with exception <%s>\n%s",
+                    err,
+                    traceback.format_exc()
+                )
 
-    def connect(self):
+    def connect(self) -> Awaitable:
         """ Connects to RabbitMQ
 
             When the connection is established, the on_connection_open method
@@ -141,8 +165,8 @@ class AsyncConnection:
             raise Exception("Cannot connect after closing connection")
 
         # Handle concurrency in the case we are waiting for connection to be established
-        if self._future is not None:
-            return self._future
+        if self._connect_future is not None:
+            return self._connect_future
 
         future = Future()
 
@@ -152,7 +176,7 @@ class AsyncConnection:
             return future
 
         # keep our future for concurrency
-        self._future = future
+        self._connect_future = future
 
         self._reconnect(False)
         return future
@@ -166,20 +190,20 @@ class AsyncConnection:
                 self.handle_connection_error(message)
             except Exception as e:
                 # Handle abort connection exception
-                if self._future:
-                    self._future.set_exception(e)
+                if self._connect_future:
+                    self._connect_future.set_exception(e)
                 else:
                     raise
 
         def open_handler(conn):
             self._logger.info("AMQP Connection established")
             # Clear our future
-            future = self._future
-            self._future = None
+            future = self._connect_future
+            self._connect_future = None
             self._connection = conn
             if reconnect:
                 # Schedule all registered connection callbacks
-                asyncio.ensure_future(self._execute_callbacks())
+                asyncio.create_task(self._execute_callbacks())
             if future is not None:
                 future.set_result(conn)
 
@@ -187,10 +211,12 @@ class AsyncConnection:
             self.on_connection_close(reason)
 
         cnxparams = self._cnxparams[self._cnxindex]
-        connection = AsyncioConnection(cnxparams,
-                                       on_open_callback=open_handler,
-                                       on_open_error_callback=error_handler,
-                                       on_close_callback=closed_handler)
+        connection = AsyncioConnection(
+            cnxparams,
+            on_open_callback=open_handler,
+            on_open_error_callback=error_handler,
+            on_close_callback=closed_handler,
+        )
 
         _patch_connection(connection)
 
@@ -206,21 +232,26 @@ class AsyncConnection:
 
         self._connection = None
 
+        cluster_size = len(self._cnxparams)
+
         # Create a new connection on the next node
         # Set next connection backend as our failover
-        self._cnxindex = (self._cnxindex + 1) % len(self._cnxparams)
-        if self._cnxindex == 0:
-            # All nodes all been tried
-            if self._reconnect_delay > 0:
-                self._logger.error(
-                    "AMQP no nodes responding, waiting {} s before new attempts".format(self._reconnect_delay))
-                self.add_timeout(self._reconnect_delay, self._reconnect)
+
+        cnxindex = self._cnxindex + 1
+        if cnxindex >= cluster_size:
+            # All nodes have been tried
+            # If we do not mean to reconnect, leave the field
+            if not self._reconnect_always:
+                raise ConnectionAttemptExhausted()
             else:
-                self._logger.error("AMQP no nodes responding...")
-                raise RuntimeError("Aborting AMQP connection")
+                self._cnxindex = 0
+                self._logger.error(
+                    "AMQP no nodes responding, waiting %s s before new attempts", self._reconnect_delay)
+                add_timeout(self._reconnect_delay, self._reconnect)
         else:
-            self._logger.error('AMQP Attempting reconnection in {} ms'.format(self._reconnect_latency*1000))
-            self.add_timeout(self._reconnect_latency, self._reconnect)
+            # Try on next node
+            self._cnxindex = cnxindex % cluster_size
+            add_timeout(1, self._reconnect)
 
     def on_connection_close(self, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -288,3 +319,6 @@ class AsyncConnectionJob:
 
         # Register our initialize callback to use when reconnecting
         self._connection.add_reconnect_callback(self.initialize, *args, **kwargs)
+
+    async def initialize(self, *args, **kwargs):
+        ...

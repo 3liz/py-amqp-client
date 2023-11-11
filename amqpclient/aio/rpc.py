@@ -18,6 +18,7 @@ Define rpc client/server library
 import asyncio
 import traceback
 import uuid
+
 from collections import namedtuple
 
 import pika

@@ -54,20 +54,25 @@ def publish():
         kwargs['virtual_host'] = args.vhost
 
     # Connect
-    publisher = BasicPublisher(args.host, reconnect_delay=args.reconnect_delay,
-                               reconnect_latency=0, **kwargs)
+    publisher = BasicPublisher(
+        args.host,
+        reconnect_delay=args.reconnect_delay,
+        **kwargs,
+    )
 
     exchange_type = args.exchange_type
     if exchange_type == 'none':
         exchange_type = None
 
     publisher.initialize(args.exchange, args.exchange_type)
-    publisher.publish(message,
-                      routing_key=args.routing_key,
-                      expiration=args.expiration,
-                      content_type=args.content_type,
-                      content_encoding=args.content_encoding,
-                      headers=args.headers)
+    publisher.publish(
+        message,
+        routing_key=args.routing_key,
+        expiration=args.expiration,
+        content_type=args.content_type,
+        content_encoding=args.content_encoding,
+        headers=args.headers,
+    )
     publisher.close()
 
 

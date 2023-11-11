@@ -26,9 +26,10 @@ async def run_test(args):
         response = "cid={}".format(cid)
         request.reply(response)
 
-    connection = AsyncConnection(host=args.host,
-                                 reconnect_delay=args.reconnect_delay,
-                                 reconnect_latency=args.latency)
+    connection = AsyncConnection(
+        host=args.host,
+        reconnect_delay=args.reconnect_delay,
+    )
 
     client = AsyncRPCClient(connection=connection)
     worker = AsyncRPCWorker(connection=connection)
@@ -58,9 +59,8 @@ if __name__ == "__main__":
     parser.add_argument('--delay', nargs='?', type=int,  default=1, help="worker delay")
     parser.add_argument('--logging', choices=['debug', 'info', 'warning',
                         'error'], default='info', help="set log level")
-    parser.add_argument('--latency', type=float, default=0.200, help="set reconnection latency")
-    parser.add_argument('--reconnect-delay',  type=float, default=5, help="Reconnect delay")
-
+    parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
+    
     args = parser.parse_args(sys.argv[1:])
 
     logger = logging.getLogger()

@@ -21,9 +21,10 @@ async def run_test(args):
     def message_handler(request):
         logging.info("===> Received {} {}".format(request.key, request.body))
 
-    connection = AsyncConnection(host=args.host,
-                                 reconnect_delay=args.reconnect_delay,
-                                 reconnect_latency=args.latency)
+    connection = AsyncConnection(
+        host=args.host,
+        reconnect_delay=args.reconnect_delay,
+    )
 
     sub = AsyncSubscriber(connection=connection)
     pub = AsyncPublisher(connection=connection)
@@ -47,15 +48,16 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(description='Test Tornado async ampq pub/sub')
+    parser.add_argument('--reconnect-delay', metavar='seconds', default=5, type=float, help="Reconnection delay")
     parser.add_argument('--host', metavar='address', nargs='?', default='localhost', help="server address")
     parser.add_argument('--requests', nargs='?', type=int,  default=5, help="numbers of requests")
     parser.add_argument('--logging', choices=['debug', 'info', 'warning', 'error'],
                         default='info', help="set log level"
                         )
-    parser.add_argument('--latency', type=float, default=0.200, help="set reconnection latency")
-    parser.add_argument('--reconnect-delay',  type=float, default=5, help="Reconnect delay")
-
+    
     args = parser.parse_args(sys.argv[1:])
+
+    print("===============>", args)
 
     logger = logging.getLogger()
     logger.addHandler(logging.StreamHandler())
