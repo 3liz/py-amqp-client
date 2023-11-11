@@ -9,31 +9,31 @@
 """ Implement pub/sub notifier as cli command
 """
 
-# XXX Keep python2 compatibility 
-from __future__ import (absolute_import, division, print_function)
+# XXX Keep python2 compatibility
+from __future__ import absolute_import, division, print_function
 
-from .basic import BasicSubscriber
-
+import argparse
 import logging
 import signal
 import sys
-import argparse 
+
+from .basic import BasicSubscriber
 
 
 def subscribe():
     """ Wait for a notification from amqp broker
     """
     parser = argparse.ArgumentParser(description='AMQP subscriber')
-    parser.add_argument('-H','--host' , metavar='address', default='localhost',
+    parser.add_argument('-H', '--host', metavar='address', default='localhost',
                         help="server address")
-    parser.add_argument('-o','--output', metavar='path', dest='output', default=None, help='Output message to file')
-    parser.add_argument('-t','--topic', dest='routing_key', default='', help='Message topic')
+    parser.add_argument('-o', '--output', metavar='path', dest='output', default=None, help='Output message to file')
+    parser.add_argument('-t', '--topic', dest='routing_key', default='', help='Message topic')
     parser.add_argument('--reconnect-delay', metavar='seconds', default=3, type=float, help="Reconnection delay")
-    parser.add_argument('-x','--exchange', dest='exchange', metavar='name', help="Exchange name", required=True)
-    # Standard exchange type are 'topic','fanout','direct' or 'none' for using the default exchange] 
-    parser.add_argument('--exchange-type', default='none', 
+    parser.add_argument('-x', '--exchange', dest='exchange', metavar='name', help="Exchange name", required=True)
+    # Standard exchange type are 'topic','fanout','direct' or 'none' for using the default exchange]
+    parser.add_argument('--exchange-type', default='none',
                         help="Exchange type")
-    parser.add_argument('-V','--virtual-host', dest='vhost', default=None)
+    parser.add_argument('-V', '--virtual-host', dest='vhost', default=None)
     parser.add_argument('--credentials', metavar=('user', 'password'),  nargs=2)
 
     args = parser.parse_args()
@@ -42,7 +42,7 @@ def subscribe():
         raise SystemExit("Caught signal {}".format(signum))
 
     signal.signal(signal.SIGTERM, terminate_handler)
-    signal.signal(signal.SIGINT , terminate_handler)
+    signal.signal(signal.SIGINT, terminate_handler)
 
     kwargs = {}
 
@@ -58,7 +58,7 @@ def subscribe():
     logger.setLevel('INFO')
 
     # Connect
-    subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay, 
+    subscriber = BasicSubscriber(args.host, reconnect_delay=args.reconnect_delay,
                                  reconnect_latency=0, logger=logger, **kwargs)
 
     exchange_type = args.exchange_type
@@ -66,25 +66,22 @@ def subscribe():
         exchange_type = None
 
     if args.output is not None:
-        output = open(args.output,'w')
+        output = open(args.output, 'w')
     else:
         output = sys.stdout
 
-    def handler( message ):
-        print( message.body.decode(), file=output)
+    def handler(message):
+        print(message.body.decode(), file=output)
 
     try:
-        subscriber.run(args.exchange, 
-                       handler = handler, 
+        subscriber.run(args.exchange,
+                       handler=handler,
                        exchange_type=exchange_type,
                        routing_keys=args.routing_key)
     except (KeyboardInterrupt, SystemExit) as e:
         print(e, file=sys.stderr)
-        subscriber.close() 
+        subscriber.close()
 
 
 if __name__ == "__main__":
     subscribe()
-
-
-

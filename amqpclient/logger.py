@@ -10,17 +10,19 @@
 Define a logger based on amqp
 """
 # Keep python 2 compat
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
 
-import os
 import logging
+import os
+
 from .basic import BasicPublisher
+
 
 class Handler(logging.Handler):
     """ A logging handler that push notifications to RabbitMQ
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  exchange, routing_key,
                  level=logging.NOTSET,
                  formatstr='%(asctime)s\t%(levelname)s\t%(hostname)s\t[%(process)d]\t%(message)s',
@@ -30,12 +32,12 @@ class Handler(logging.Handler):
                  **kwargs):
 
         self._content_type = content_type
-        self._routing_key  = routing_key
-        self._client       = BasicPublisher(**kwargs)
-        self._hostname     = os.uname()[1]
-        self._expiration   = message_ttl
+        self._routing_key = routing_key
+        self._client = BasicPublisher(**kwargs)
+        self._hostname = os.uname()[1]
+        self._expiration = message_ttl
 
-        self._client.initialize(exchange, exchange_type=exchange_type) 
+        self._client.initialize(exchange, exchange_type=exchange_type)
 
         super(Handler, self).__init__(level)
         # Set formatter
@@ -58,13 +60,11 @@ class Handler(logging.Handler):
         pass
 
     def emit(self, record):
-        """ Publish log message 
+        """ Publish log message
         """
         record.__dict__.update(hostname=self._hostname)
         self._client.publish(self.format(record),
-                             routing_key = self._routing_key % record.__dict__,
-                             expiration = self._expiration,
-                             content_type = self._content_type,
-                             content_encoding ='utf-8')
-
-
+                             routing_key=self._routing_key % record.__dict__,
+                             expiration=self._expiration,
+                             content_type=self._content_type,
+                             content_encoding='utf-8')

@@ -19,7 +19,7 @@ import traceback
 
 
 class MSGException(Exception):
-    def __init__( self, code, message, exc=None):
+    def __init__(self, code, message, exc=None):
         super(Exception, self).__init__(code, message, exc)
 
 
@@ -38,24 +38,25 @@ def parse_message(body):
         :raises: MSGException: with code 400 if the parsing fail
     """
     try:
-        data=json.loads(body)
+        data = json.loads(body)
         name = data['command']
         args = data['args']
         return name, args
     except Exception as e:
         traceback.print_exc()
-        raise MSGException(400,"Invalid message",exc=e)
+        raise MSGException(400, "Invalid message", exc=e)
 
 
 class RPCHandler:
     """ Basic commands handler
     """
+
     def __init__(self, logger=None):
         self._registry = {}
         self.logger = logger or logging.getLogger()
 
     def register_command(self, name, fun):
-        """ Register a command 
+        """ Register a command
         """
         self._registry[name] = fun
 
@@ -63,16 +64,16 @@ class RPCHandler:
         """ Decorator for registering function as a
             command
         """
-        def wrapper( fun ):
-            self.register_command( name, fun )
+        def wrapper(fun):
+            self.register_command(name, fun)
             return fun
 
         return wrapper
 
-    def log_error( self, e ):
+    def log_error(self, e):
         """ handle messge error """
         if not isinstance(e, MSGException):
-            code, msg, exc = 500,"Internal Error",e
+            code, msg, exc = 500, "Internal Error", e
         else:
             code, msg, exc = e.args
 
@@ -86,12 +87,11 @@ class RPCHandler:
             to the client
         """
         code, msg, exc = self.log_error(e)
-        error_msg = dict( code=code, message=msg, error=str(exc) )
+        error_msg = dict(code=code, message=msg, error=str(exc))
         self.reply_json(request, data=error_msg,  code=code)
         return code, msg, exc
 
-
-    def __call__( self, request ):
+    def __call__(self, request):
         """ Handle command
 
             Pass request arguments as arguments keywords
@@ -100,9 +100,9 @@ class RPCHandler:
             name, args = parse_message(request.body)
             fun = self._registry.get(name)
             if fun is None:
-                raise MSGException(400,"invalid_command")
+                raise MSGException(400, "invalid_command")
 
-            fun( request, **args )
+            fun(request, **args)
 
         except Exception as e:
             if not isinstance(e, MSGException):
@@ -114,8 +114,7 @@ class RPCHandler:
         """
         headers = dict(headers)
         headers['return-code'] = code
-        request.reply( json.dumps(data),
-                       content_type="application/json",
-                       content_encoding="utf-8",
-                       headers=headers)
- 
+        request.reply(json.dumps(data),
+                      content_type="application/json",
+                      content_encoding="utf-8",
+                      headers=headers)

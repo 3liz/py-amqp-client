@@ -12,32 +12,35 @@
 
 import asyncio
 import logging
-from ..aio import  AsyncRPCClient, AsyncRPCWorker, AsyncConnection
+
+from ..aio import AsyncConnection, AsyncRPCClient, AsyncRPCWorker
 
 ROUTE_KEY = "test_rpc"
 
 
-async def run_test( args  ):
-        
-    def worker_handler( request ):
+async def run_test(args):
+
+    def worker_handler(request):
         cid = request.props.correlation_id
         logging.info(" [{}] request {}".format(cid, request.body))
         response = "cid={}".format(cid)
         request.reply(response)
 
-    connection = AsyncConnection(host=args.host, 
+    connection = AsyncConnection(host=args.host,
                                  reconnect_delay=args.reconnect_delay,
                                  reconnect_latency=args.latency)
 
     client = AsyncRPCClient(connection=connection)
     worker = AsyncRPCWorker(connection=connection)
-    
+
     await client.connect()
     await worker.connect(worker_handler, routing_key=ROUTE_KEY)
 
-    responses = await asyncio.gather(*[client.call("=> request %s" % i, ROUTE_KEY, timeout=args.timeout) for i in range(args.requests)] )
-    for i,rv in enumerate(responses):
-        print('***',i,rv)
+    responses = await asyncio.gather(*[client.call(
+        "=> request %s" % i, ROUTE_KEY, timeout=args.timeout
+    ) for i in range(args.requests)])
+    for i, rv in enumerate(responses):
+        print('***', i, rv)
 
     worker.close()
     client.close()
@@ -45,25 +48,25 @@ async def run_test( args  ):
 
 
 if __name__ == "__main__":
-    
-    import sys
+
     import argparse
+    import sys
     parser = argparse.ArgumentParser(description='Test Tornado async ampq client')
     parser.add_argument('--host', metavar='address', nargs='?', default='localhost', help="server address")
     parser.add_argument('--requests', nargs='?', type=int,  default=5, help="numbers of requests")
     parser.add_argument('--timeout', nargs='?', type=int,  default=5, help="request timeout")
     parser.add_argument('--delay', nargs='?', type=int,  default=1, help="worker delay")
-    parser.add_argument('--logging', choices=['debug', 'info', 'warning', 'error'], default='info', help="set log level")
-    parser.add_argument('--latency'  , type=float, default=0.200, help="set reconnection latency")
+    parser.add_argument('--logging', choices=['debug', 'info', 'warning',
+                        'error'], default='info', help="set log level")
+    parser.add_argument('--latency', type=float, default=0.200, help="set reconnection latency")
     parser.add_argument('--reconnect-delay',  type=float, default=5, help="Reconnect delay")
 
     args = parser.parse_args(sys.argv[1:])
-    
+
     logger = logging.getLogger()
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(getattr(logging, args.logging.upper()))
-   
+
     asyncio.get_event_loop().run_until_complete(run_test(args))
- 
+
     print("Done.")
-    
